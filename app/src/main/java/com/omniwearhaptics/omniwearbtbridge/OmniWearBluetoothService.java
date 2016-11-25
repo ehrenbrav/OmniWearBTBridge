@@ -3,11 +3,13 @@ package com.omniwearhaptics.omniwearbtbridge;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothSocket;
-import android.content.BroadcastReceiver;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -29,6 +31,7 @@ import java.util.UUID;
 class OmniWearBluetoothService {
 
     private static final String PREFS_NAME = "OmniWearPrefs";
+    private static final String BT_NAME = "OmniWear";
     private static final String OMNIWEAR_UUID = "99700001-ad20-11e6-8000-00805F9B34FB";
     private static final String TAG = "OmniWearBluetoothService";
     private static final String SAVED_MAC_PREF_NAME = "omniwear_device_mac";
@@ -43,54 +46,19 @@ class OmniWearBluetoothService {
     private final BluetoothAdapter mBluetoothAdapter;
     private final Handler mHandler;
     private static String saved_mac = "";
-    private static boolean mIsReceiverRegistered = false;
     private static int mState = STATE_NONE;
     private ConnectedThread mConnectedThread = null;
     private ConnectThread mConnectThread = null;
 
-    // Create a BroadcastReceiver for ACTION_FOUND
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-
-        public void onReceive(Context context, Intent intent) {
-
-            String action = intent.getAction();
-            // When discovery finds a device
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-
-                // Get the BluetoothDevice object from the Intent
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-
-                // Log it.
-                mHandler.obtainMessage(Constants.DEVICE_FOUND, device.getName()).sendToTarget();
-
-                // See if it's the OmniWear device.
-                if (device.getName().equals(context.getResources().getText(R.string.omniwear_device_name))) {
-
-                    // Record the device's MAC.
-                    saved_mac = device.getAddress();
-                    SharedPreferences settings = context.getSharedPreferences(PREFS_NAME, 0);
-                    SharedPreferences.Editor editor = settings.edit();
-                    editor.putString(SAVED_MAC_PREF_NAME, saved_mac);
-
-                    // Commit the edits!
-                    editor.apply();
-
-                    // Try to connect.
-                    BluetoothDevice omniwearDevice = mBluetoothAdapter.getRemoteDevice(saved_mac);
-                    connect(omniwearDevice);
-                }
-            }
-
-            // Notify we're starting discovery.
-            if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)) {
-                Toast.makeText(context, "BlueTooth discovery started...", Toast.LENGTH_LONG).show();
-            }
-        }
-    };
-
+    // Constructor to check support for BT LE.
     OmniWearBluetoothService(Activity activity, Handler handler) {
 
-        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        // Initializes Bluetooth adapter.
+        final BluetoothManager bluetoothManager =
+                (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
+        mBluetoothAdapter = bluetoothManager.getAdapter();
+
+        // Set up the handler.
         mHandler = handler;
 
         // If the adapter is null, then Bluetooth is not supported
@@ -105,17 +73,18 @@ class OmniWearBluetoothService {
             Toast.makeText(activity, R.string.ble_not_supported, Toast.LENGTH_SHORT).show();
             activity.finish();
         }
-
     }
 
     // This should be called each time the app comes into focus.
     synchronized void resume(Activity activity) {
 
-        // See if BT is enabled.
-        if (!mBluetoothAdapter.isEnabled()) {
-            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            activity.startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+        // Ensures Bluetooth is available on the device and it is enabled. If not,
+        // displays a dialog requesting user permission to enable Bluetooth.
+        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            activity.startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
+
 
         if (mState == STATE_NONE) {
 
@@ -150,15 +119,9 @@ class OmniWearBluetoothService {
     }
 
     // Cleanup.
-    synchronized void stop(Context context) {
+    synchronized void stop() {
 
         Log.d(TAG, "stop");
-
-        // Unregister broadcast receiver if necessary.
-        if (!mIsReceiverRegistered) {
-            context.unregisterReceiver(mReceiver);
-            mIsReceiverRegistered = false;
-        }
 
         // Stop all threads.
         if (mConnectedThread != null) {
@@ -175,20 +138,55 @@ class OmniWearBluetoothService {
     // Serch for a new OmniWear device.
     void search(Context context) {
 
-        // Register the BroadcastReceiver
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
-        context.registerReceiver(mReceiver, filter); // Don't forget to unregister during onDestroy
-        mIsReceiverRegistered = true;
+        final Context final_context = context;
+
+        // Set up the BT LE scanner.
+        final BluetoothLeScanner scanner = mBluetoothAdapter.getBluetoothLeScanner();
+        Toast.makeText(context, "Starting scan...", Toast.LENGTH_LONG).show();
+
+        // Callback function for the BT scanner.
+        ScanCallback btCallback = new ScanCallback() {
+
+            @Override
+            public void onScanResult(int callbackType, ScanResult result) {
+
+                super.onScanResult(callbackType, result);
+
+                // If it's the OmniWear device, store the MAC and connect.
+                BluetoothDevice device = result.getDevice();
+                String msg = "Found device" + device.getName();
+                Log.d(TAG, msg);
+
+                if (device.getName().equals(BT_NAME)) {
+
+                    // Stop scanning.
+                    scanner.stopScan(this);
+
+                    // Save the address in memory.
+                    saved_mac = device.getAddress();
+
+                    // Save the address in the preferences.
+                    SharedPreferences settings = final_context.getSharedPreferences(PREFS_NAME, 0);
+                    SharedPreferences.Editor editor = settings.edit();
+                    editor.putString(SAVED_MAC_PREF_NAME, saved_mac);
+                    editor.apply();
+
+                    // Try to connect.
+                    connect(device);
+                }
+            }
+
+            @Override
+            public void onScanFailed(int errorCode) {
+                super.onScanFailed(errorCode);
+                String msg = "onScanFailed: " + errorCode;
+                Log.d(TAG, msg);
+                setState(STATE_NONE);
+            }
+        };
 
         // Start searching!
-        if (!mBluetoothAdapter.startDiscovery()) {
-            Message msg = mHandler.obtainMessage(Constants.MESSAGE_TOAST);
-            Bundle bundle = new Bundle();
-            bundle.putString(Constants.TOAST, "BlueTooth discovery failed.");
-            msg.setData(bundle);
-            mHandler.sendMessage(msg);
-        }
+        scanner.startScan(btCallback);
         setState(STATE_SEARCHING);
     }
 
@@ -198,11 +196,9 @@ class OmniWearBluetoothService {
     }
 
     // Set the MAC.
-    static void setSaved_mac(String mac) {
-        saved_mac = mac;
-    }
+    static void setSaved_mac(String mac) { saved_mac = mac; }
 
-    // Set the connection state.
+    // Set the connection state and log.
     private synchronized void setState(int state) {
         Log.d(TAG, "setState() " + mState + " -> " + state);
         mState = state;

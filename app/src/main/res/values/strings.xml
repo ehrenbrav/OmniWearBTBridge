@@ -3,7 +3,6 @@
 
     <!--  Bluetooth -->
     <string name="app_name">OmniWear BT Bridge</string>
-    <string name="omniwear_device_name">OmniWear</string>
     <string name="bt_not_enabled_leaving">Bluetooth was not enabled. Leaving OmniWear BT Bridge.</string>
     <string name="status_connected">Status: Connected</string>
     <string name="status_not_connected">Status: Disconnected</string>
