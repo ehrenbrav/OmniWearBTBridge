@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.BluetoothLeScanner;
@@ -18,6 +19,9 @@ import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.widget.Toast;
 import com.omniwearhaptics.omniwearbtbridge.logger.Log;
+
+import java.util.UUID;
+
 import static android.bluetooth.BluetoothProfile.STATE_DISCONNECTED;
 
 /**
@@ -32,6 +36,7 @@ class OmniWearBluetoothService {
     private static final String PREFS_NAME = "OmniWearPrefs";
     private static final String BT_NAME = "OmniWear";
     private static final String OMNIWEAR_UUID = "99700001-ad20-11e6-8000-00805F9B34FB";
+    private static final String OMNIWEAR_CHARACTERISTIC_UUID = "99700002-ad20-11e6-8000-00805F9B34FB";
     private static final String SAVED_MAC_PREF_NAME = "omniwear_device_mac";
     private static final long SCAN_PERIOD = 10000;
     private static final int REQUEST_ENABLE_BT = 3;
@@ -43,7 +48,9 @@ class OmniWearBluetoothService {
     private static final int STATE_CONNECTED = 3;
 
     private final BluetoothAdapter mBluetoothAdapter;
-    private BluetoothGatt mBluetoothGatt;
+    private BluetoothGatt mBluetoothGatt = null;
+    private BluetoothGattService mOmniWearDeviceService = null;
+    private BluetoothGattCharacteristic mOmniWearDeviceCharacteristic = null;
     private static int mState = STATE_NONE;
     private Handler mHandler;
 
@@ -97,7 +104,7 @@ class OmniWearBluetoothService {
     }
 
     // Cleanup.
-    void stop() {
+    void stop(MainActivity activity) {
 
         Log.d(TAG, "stop");
         if (mBluetoothGatt == null) {
@@ -105,8 +112,36 @@ class OmniWearBluetoothService {
         }
         mBluetoothGatt.close();
         mBluetoothGatt = null;
-
+        mOmniWearDeviceService = null;
+        mOmniWearDeviceCharacteristic = null;
+        activity.setStatusMessage(activity.getString(R.string.status_not_connected));
         setState(STATE_NONE);
+    }
+
+    // Write the characteristic to the device to command a motor.
+    void commandMotor(byte motor, byte intensity) {
+
+        // Check if we're connected.
+        if (mState != STATE_CONNECTED || mBluetoothGatt == null) {
+            Log.i(TAG, "OmniWear device not connected.");
+            return;
+        }
+
+        // Create the characteristic.
+        /*
+        BluetoothGattCharacteristic characteristic = new BluetoothGattCharacteristic(
+                UUID.fromString(OMNIWEAR_CHARACTERISTIC_UUID),
+                BluetoothGattCharacteristic.PROPERTY_WRITE,
+                BluetoothGattCharacteristic.PERMISSION_WRITE);
+                */
+        byte[] value = new byte[2];
+        value[0] = motor;
+        value[1] = intensity;
+        mOmniWearDeviceCharacteristic.setValue(value);
+
+        // Write the command to the device.
+        Log.d(TAG, "Write");
+        mBluetoothGatt.writeCharacteristic(mOmniWearDeviceCharacteristic);
     }
 
     // Serch for a new OmniWear device.
@@ -204,55 +239,81 @@ class OmniWearBluetoothService {
     }
 
     // Connect to the OmniWear device.
-    private void connect(BluetoothDevice device, MainActivity activity) {
+    private void connect(BluetoothDevice device, final MainActivity activity) {
 
         Log.d(TAG, "Attempting to connect to: " + device);
 
         // Indicate the status.
         activity.setStatusMessage(activity.getString(R.string.status_connecting));
 
-        // Connect.
-        mBluetoothGatt = device.connectGatt(activity.getApplicationContext(), false, mGattCallback);
+        // Callbacks for interacting with the OmniWear Device.
+        BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
+
+            @Override
+            public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+
+                    // Connected - notify user and discover services.
+                    mHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            activity.setStatusMessage(activity.getString(R.string.status_connected));
+                        }
+                    });
+                    setState(STATE_CONNECTED);
+                    Log.i(TAG, "Connected.");
+                    Log.i(TAG, "Attempting to start service discovery:" +
+                            mBluetoothGatt.discoverServices());
+
+                } else if (newState == STATE_DISCONNECTED) {
+
+                    // Disconnected - notify user.
+                    mHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            activity.setStatusMessage(activity.getString(R.string.status_not_connected));
+                        }
+                    });
+                    setState(STATE_NONE);
+                    Log.i(TAG, "Not connected.");
+                }
+            }
+
+            @Override
+            public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+
+                // Find the service and characteristic for controlling the device.
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    mOmniWearDeviceService = gatt.getService(UUID.fromString(OMNIWEAR_UUID));
+                    if (mOmniWearDeviceService == null) {
+                        Log.w(TAG, "OmniWear service not found.");
+                    } else {
+                        Log.i(TAG, "OmniWear service discovered.");
+
+                        // Get the characteristic for controlling the device.
+                        mOmniWearDeviceCharacteristic = mOmniWearDeviceService.getCharacteristic(UUID.fromString(OMNIWEAR_CHARACTERISTIC_UUID));
+                        if (mOmniWearDeviceCharacteristic == null) {
+                            Log.w(TAG, "OmniWear characteristic not found.");
+                        } else {
+                            Log.i(TAG, "OmniWear Characteristic found.");
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "onServicesDiscovered received: " + status);
+                }
+            }
+
+            @Override
+            public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    Log.d(TAG, "Write successful.");
+                }
+            }
+        };
+
+        // Connect!
+        mBluetoothGatt = device.connectGatt(activity.getApplicationContext(), true, mGattCallback);
         setState(STATE_CONNECTING);
     }
-
-    // Callbacks for interacting with the OmniWear Device.
-    private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
-
-        @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                setState(STATE_CONNECTED);
-                Log.i(TAG, "Connected.");
-                Log.i(TAG, "Attempting to start service discovery:" +
-                        mBluetoothGatt.discoverServices());
-
-            } else if (newState == STATE_DISCONNECTED) {
-                setState(STATE_NONE);
-                Log.i(TAG, "Not connected.");
-            }
-        }
-
-        @Override
-        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                // TODO check that our service exists.
-                Log.w(TAG, "Services discovered.");
-            } else {
-                Log.w(TAG, "onServicesDiscovered received: " + status);
-            }
-        }
-
-        @Override
-        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            super.onCharacteristicWrite(gatt, characteristic, status);
-        }
-
-        @Override
-        public void onReliableWriteCompleted(BluetoothGatt gatt, int status) {
-            super.onReliableWriteCompleted(gatt, status);
-        }
-    };
 }

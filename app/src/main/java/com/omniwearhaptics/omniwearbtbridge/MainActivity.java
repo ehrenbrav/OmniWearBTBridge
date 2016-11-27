@@ -35,12 +35,20 @@ public class MainActivity extends ActivityBase {
 
     private boolean mLogShown;
     private static OmniWearBluetoothService mBTManager = null;
+    private static OmniWearDevice mOmniwearButtons = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Set up the view.
         setContentView(R.layout.activity_main);
+
+        // Set up the BT Service.
         mBTManager = new OmniWearBluetoothService(this);
+
+        // Set up the button controller.
+        mOmniwearButtons = new OmniWearDevice(this, mBTManager);
 
         // Android M Permission check 
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -109,9 +117,9 @@ public class MainActivity extends ActivityBase {
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
-        mBTManager.stop();
+    public void onPause() {
+        super.onPause();
+        mBTManager.stop(this);
     }
 
     // Handle forgetting and pairing of the device.
@@ -130,7 +138,7 @@ public class MainActivity extends ActivityBase {
             // Forget the saved MAC.
             OmniWearBluetoothService.setSaved_mac("", this);
             setButtonText(getString(R.string.pair_device));
-            mBTManager.stop();
+            mBTManager.stop(this);
         }
     }
 

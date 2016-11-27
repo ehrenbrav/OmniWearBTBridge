@@ -10,25 +10,12 @@
     <string name="status_connecting">Status: Connecting</string>
     <string name="device_found">Device Found: </string>
     <string name="device_not_found">OmniWear Device Not Found.</string>
-    <string name="ble_not_supported">BlueTooth Low Energy Not Supported. Quitting...</string>
-
-    <!--  DeviceListActivity -->
-    <string name="select_device">select a device to connect</string>
-    <string name="none_paired">No devices have been paired</string>
-    <string name="none_found">No devices found</string>
-    <string name="title_paired_devices">Paired Devices</string>
-    <string name="title_other_devices">Other Available Devices</string>
-    <string name="button_scan">Scan for devices</string>
-
-    <!-- Options Menu -->
-    <string name="secure_connect">Connect a device - Secure</string>
-    <string name="insecure_connect">Connect a device - Insecure</string>
-    <string name="discoverable">Make discoverable</string>
+    <string name="ble_not_supported">BlueTooth Low Energy Not Supported. Quitting.</string>
+    <string name="pair_device">Pair Device</string>
+    <string name="forget_device">Forget Device</string>
 
     <!-- Screen UI -->
     <string name="haptic_device_type">Haptic Device Type:</string>
-    <string name="pair_device">Pair Device</string>
-    <string name="forget_device">Forget Device</string>
     <string name="cap">Cap</string>
     <string name="neckband">Neckband</string>
 
