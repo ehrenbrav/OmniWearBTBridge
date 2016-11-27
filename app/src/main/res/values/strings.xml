@@ -9,6 +9,7 @@
     <string name="status_searching">Status: Searching</string>
     <string name="status_connecting">Status: Connecting</string>
     <string name="device_found">Device Found: </string>
+    <string name="device_not_found">OmniWear Device Not Found.</string>
     <string name="ble_not_supported">BlueTooth Low Energy Not Supported. Quitting...</string>
 
     <!--  DeviceListActivity -->

@@ -3,9 +3,7 @@ package com.omniwearhaptics.omniwearbtbridge;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
 import android.view.Menu;
@@ -14,7 +12,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.RadioButton;
 import android.widget.TextView;
-import android.widget.Toast;
 import android.widget.ViewAnimator;
 
 import com.omniwearhaptics.omniwearbtbridge.common.ActivityBase;
@@ -35,7 +32,7 @@ public class MainActivity extends ActivityBase {
     public static final String TAG = "MainActivity";
 
     private static final int PERMISSION_REQUEST_FINE_LOCATION = 3;
-    private final OmniWearHandler mHandler = new OmniWearHandler(this);
+
     private boolean mLogShown;
     private static OmniWearBluetoothService mBTManager = null;
 
@@ -43,7 +40,7 @@ public class MainActivity extends ActivityBase {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mBTManager = new OmniWearBluetoothService(this, mHandler);
+        mBTManager = new OmniWearBluetoothService(this);
 
         // Android M Permission check 
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -99,17 +96,15 @@ public class MainActivity extends ActivityBase {
         mBTManager.resume(this);
 
         // Set default options.
-        TextView textView = (TextView) findViewById(R.id.connection_status);
-        textView.setText(R.string.status_not_connected);
+        setStatusMessage(getString(R.string.status_not_connected));
         RadioButton radioButton = (RadioButton) findViewById(R.id.radio_neckband);
         radioButton.performClick();
 
         // If no device is known, ask to pair.
-        Button pairingButton = (Button) findViewById(R.id.button_pairing);
-        if (OmniWearBluetoothService.getSaved_mac().equals("")) {
-            pairingButton.setText(R.string.pair_device);
+        if (OmniWearBluetoothService.getSaved_mac(this).equals("")) {
+            setButtonText(getString(R.string.pair_device));
         } else {
-            pairingButton.setText(R.string.forget_device);
+            setButtonText(getString(R.string.forget_device));
         }
     }
 
@@ -122,14 +117,20 @@ public class MainActivity extends ActivityBase {
     // Handle forgetting and pairing of the device.
     public void onPairingButtonClicked(View view) {
 
-        if (OmniWearBluetoothService.getSaved_mac().equals("")) {
+        if (OmniWearBluetoothService.getSaved_mac(this).equals("")) {
+
+            // Indicate the status.
+            setStatusMessage(getString(R.string.status_searching));
 
             // Look for the OmniWear Device.
-            mBTManager.search(getApplicationContext());
+            mBTManager.search(this);
+
         } else {
 
             // Forget the saved MAC.
-            OmniWearBluetoothService.setSaved_mac("");
+            OmniWearBluetoothService.setSaved_mac("", this);
+            setButtonText(getString(R.string.pair_device));
+            mBTManager.stop();
         }
     }
 
@@ -173,6 +174,12 @@ public class MainActivity extends ActivityBase {
     public void setStatusMessage(String msg) {
         TextView textView = (TextView) findViewById(R.id.connection_status);
         textView.setText(msg);
+    }
+
+    // Set the button text.
+    public void setButtonText(String msg) {
+        Button pairingButton = (Button) findViewById(R.id.button_pairing);
+        pairingButton.setText(msg);
     }
 
     @Override
