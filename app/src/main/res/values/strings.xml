@@ -18,5 +18,7 @@
     <string name="haptic_device_type">Haptic Device Type:</string>
     <string name="cap">Cap</string>
     <string name="neckband">Neckband</string>
+    <string name="show_log">Show Log</string>
+    <string name="hide_log">Hide Log</string>
 
 </resources>

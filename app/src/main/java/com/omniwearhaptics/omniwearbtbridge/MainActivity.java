@@ -33,7 +33,7 @@ public class MainActivity extends ActivityBase {
 
     private static final int PERMISSION_REQUEST_FINE_LOCATION = 3;
 
-    private boolean mLogShown;
+    private boolean mLogShown = false;
     private static OmniWearBluetoothService mBTManager = null;
     private static OmniWearDevice mOmniwearButtons = null;
 
@@ -107,6 +107,10 @@ public class MainActivity extends ActivityBase {
         setStatusMessage(getString(R.string.status_not_connected));
         RadioButton radioButton = (RadioButton) findViewById(R.id.radio_neckband);
         radioButton.performClick();
+        Button logButton = (Button) findViewById(R.id.button_toggle_log);
+        logButton.setText(R.string.show_log);
+        ViewAnimator logFragment = (ViewAnimator) findViewById(R.id.log_fragment_animator);
+        logFragment.setVisibility(View.INVISIBLE);
 
         // If no device is known, ask to pair.
         if (OmniWearBluetoothService.getSaved_mac(this).equals("")) {
@@ -142,10 +146,20 @@ public class MainActivity extends ActivityBase {
         }
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main, menu);
-        return true;
+    // Show or toggle the log.
+    public void onToggleLogButtonClicked(View view) {
+
+        Button button = (Button) findViewById(R.id.button_toggle_log);
+        ViewAnimator logFragment = (ViewAnimator) findViewById(R.id.log_fragment_animator);
+        if (mLogShown) {
+            button.setText(R.string.show_log);
+            logFragment.setVisibility(View.INVISIBLE);
+            mLogShown = false;
+        } else {
+            logFragment.setVisibility(View.VISIBLE);
+            button.setText(R.string.hide_log);
+            mLogShown = true;
+        }
     }
 
     // Hides or shows the buttons that differ between Cap and Neckband.
@@ -191,20 +205,11 @@ public class MainActivity extends ActivityBase {
     }
 
     @Override
-    public boolean onPrepareOptionsMenu(Menu menu) {
-        MenuItem logToggle = menu.findItem(R.id.menu_toggle_log);
-        logToggle.setVisible(findViewById(R.id.sample_output) instanceof ViewAnimator);
-        logToggle.setTitle(mLogShown ? "Hide Log" : "Show Log");
-
-        return super.onPrepareOptionsMenu(menu);
-    }
-
-    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch(item.getItemId()) {
             case R.id.menu_toggle_log:
                 mLogShown = !mLogShown;
-                ViewAnimator output = (ViewAnimator) findViewById(R.id.sample_output);
+                ViewAnimator output = (ViewAnimator) findViewById(R.id.log_fragment);
                 if (mLogShown) {
                     output.setDisplayedChild(1);
                 } else {

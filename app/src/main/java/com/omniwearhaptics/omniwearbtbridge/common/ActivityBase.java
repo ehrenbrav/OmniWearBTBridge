@@ -2,6 +2,8 @@ package com.omniwearhaptics.omniwearbtbridge.common;
 
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
+import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 
 import com.omniwearhaptics.omniwearbtbridge.logger.Log;
 import com.omniwearhaptics.omniwearbtbridge.logger.LogWrapper;
