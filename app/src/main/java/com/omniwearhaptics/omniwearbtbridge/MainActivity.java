@@ -6,7 +6,6 @@ import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
@@ -30,10 +29,13 @@ import com.omniwearhaptics.omniwearbtbridge.logger.MessageOnlyLogFilter;
 public class MainActivity extends ActivityBase {
 
     public static final String TAG = "MainActivity";
+    public static final int CAP = 0;
+    public static final int NECKBAND = 1;
 
     private static final int PERMISSION_REQUEST_FINE_LOCATION = 3;
 
     private boolean mLogShown = false;
+    private static int mDeviceType = NECKBAND;
     private static OmniWearBluetoothService mBTManager = null;
     private static OmniWearDevice mOmniwearButtons = null;
 
@@ -107,6 +109,7 @@ public class MainActivity extends ActivityBase {
         setStatusMessage(getString(R.string.status_not_connected));
         RadioButton radioButton = (RadioButton) findViewById(R.id.radio_neckband);
         radioButton.performClick();
+        mDeviceType = NECKBAND;
         Button logButton = (Button) findViewById(R.id.button_toggle_log);
         logButton.setText(R.string.show_log);
         ViewAnimator logFragment = (ViewAnimator) findViewById(R.id.log_fragment_animator);
@@ -178,6 +181,7 @@ public class MainActivity extends ActivityBase {
                     findViewById(R.id.button_middle_left).setVisibility(View.VISIBLE);
                     findViewById(R.id.button_middle_right).setVisibility(View.VISIBLE);
                     findViewById(R.id.button_top).setVisibility(View.VISIBLE);
+                    mDeviceType = CAP;
 
                 break;
             case R.id.radio_neckband:
@@ -188,6 +192,7 @@ public class MainActivity extends ActivityBase {
                     findViewById(R.id.button_middle_left).setVisibility(View.INVISIBLE);
                     findViewById(R.id.button_middle_right).setVisibility(View.INVISIBLE);
                     findViewById(R.id.button_top).setVisibility(View.INVISIBLE);
+                    mDeviceType = NECKBAND;
                     break;
         }
     }
@@ -202,6 +207,11 @@ public class MainActivity extends ActivityBase {
     public void setButtonText(String msg) {
         Button pairingButton = (Button) findViewById(R.id.button_pairing);
         pairingButton.setText(msg);
+    }
+
+    // Get the type of device selected.
+    public static int getDeviceType() {
+        return mDeviceType;
     }
 
     @Override

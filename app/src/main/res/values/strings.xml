@@ -20,5 +20,7 @@
     <string name="neckband">Neckband</string>
     <string name="show_log">Show Log</string>
     <string name="hide_log">Hide Log</string>
+    <string name="front_label">Front</string>
+    <string name="back_label">Back</string>
 
 </resources>
