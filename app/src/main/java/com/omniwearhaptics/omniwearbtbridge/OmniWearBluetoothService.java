@@ -164,6 +164,9 @@ class OmniWearBluetoothService {
                 String msg = "Found device: " + device.getName();
                 Log.d(TAG, msg);
 
+                String deviceName = device.getName();
+                if (deviceName.equals(null) ) { return; }
+
                 if (device.getName().equals(OmniWearBluetoothService.BT_NAME)) {
 
                     // Stop scanning.
@@ -287,7 +290,12 @@ class OmniWearBluetoothService {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     mOmniWearDeviceService = gatt.getService(UUID.fromString(OMNIWEAR_UUID));
                     if (mOmniWearDeviceService == null) {
+
+                        // Weird - forget the device.
                         Log.w(TAG, "OmniWear service not found.");
+                        OmniWearBluetoothService.setSaved_mac("", activity);
+                        activity.setButtonText(activity.getString(R.string.pair_device));
+                        stop(activity);
                     } else {
                         Log.i(TAG, "OmniWear service discovered.");
 
