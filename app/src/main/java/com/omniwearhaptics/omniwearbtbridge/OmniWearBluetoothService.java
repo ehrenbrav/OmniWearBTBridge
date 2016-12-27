@@ -140,7 +140,7 @@ class OmniWearBluetoothService {
         mOmniWearDeviceCharacteristic.setValue(value);
 
         // Write the command to the device.
-        Log.d(TAG, "Write");
+        Log.d(TAG, "Write: " + value[0] + " " + value[1]);
         mBluetoothGatt.writeCharacteristic(mOmniWearDeviceCharacteristic);
     }
 
@@ -165,7 +165,7 @@ class OmniWearBluetoothService {
                 Log.d(TAG, msg);
 
                 String deviceName = device.getName();
-                if (deviceName.equals(null) ) { return; }
+                if (null == deviceName) { return; }
 
                 if (device.getName().equals(OmniWearBluetoothService.BT_NAME)) {
 

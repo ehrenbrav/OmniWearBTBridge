@@ -181,6 +181,21 @@
         android:textSize="15sp"
         android:background="@drawable/buttons"/>
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="20sp"
+        android:textColor="#000000"
+        android:text="@string/intensity"
+        android:gravity="center"/>
+
+    <SeekBar
+        android:id="@+id/intensitySlider"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="100"
+        android:progress="100"/>
+
     <ViewAnimator
         android:id="@+id/log_fragment_animator"
         android:layout_width="match_parent"

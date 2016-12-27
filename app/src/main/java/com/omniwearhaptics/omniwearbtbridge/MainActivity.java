@@ -10,6 +10,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.RadioButton;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.ViewAnimator;
 
@@ -70,6 +71,25 @@ public class MainActivity extends ActivityBase {
             });
             builder.show();
         }
+
+        // Set up the intensity slider.
+        SeekBar intensitySlider = (SeekBar) findViewById(R.id.intensitySlider);
+        intensitySlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int intensity, boolean b) {
+                mOmniwearButtons.setmIntensity(intensity);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                // Do nothing.
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                // Do nothing.
+            }
+        });
     }
 
     // Handle getting permissions to do a BT search.

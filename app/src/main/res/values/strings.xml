@@ -22,5 +22,6 @@
     <string name="hide_log">Hide Log</string>
     <string name="front_label">Front</string>
     <string name="back_label">Back</string>
+    <string name="intensity">Intensity</string>
 
 </resources>
