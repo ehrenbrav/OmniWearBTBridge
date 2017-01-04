@@ -138,7 +138,7 @@ public class OmniWearDriver {
                 Log.d(TAG, msg);
 
                 String deviceName = device.getName();
-                if (deviceName.equals(null) ) { return; }
+                if (deviceName == null || deviceName.isEmpty() ) { return; }
 
                 if (device.getName().equals(OmniWearDriver.BT_NAME)) {
 

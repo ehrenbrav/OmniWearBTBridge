@@ -35,8 +35,8 @@ public class OmniWearDevice {
     private static final int TOP =          12;
 
     private static final byte OFF =          0;
-    private static final byte ON =           100;
 
+    private static byte mIntensity = 100;
 
     public OmniWearDevice (final MainActivity activity, final OmniWearHelper btService) {
 
@@ -45,7 +45,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((FRONT), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((FRONT), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((FRONT), mIntensity); }
                 return false;
             }
         });
@@ -53,7 +53,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((FRONT_RIGHT), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((FRONT_RIGHT), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((FRONT_RIGHT), mIntensity); }
                 return false;
             }
         });
@@ -61,7 +61,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((RIGHT), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((RIGHT), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((RIGHT), mIntensity); }
                 return false;
             }
         });
@@ -69,7 +69,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((BACK_RIGHT), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((BACK_RIGHT), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((BACK_RIGHT), mIntensity); }
                 return false;
             }
         });
@@ -77,7 +77,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((BACK), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((BACK), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((BACK), mIntensity); }
                 return false;
             }
         });
@@ -85,7 +85,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((BACK_LEFT), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((BACK_LEFT), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((BACK_LEFT), mIntensity); }
                 return false;
             }
         });
@@ -93,7 +93,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((LEFT), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((LEFT), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((LEFT), mIntensity); }
                 return false;
             }
         });
@@ -101,7 +101,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((FRONT_LEFT), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((FRONT_LEFT), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((FRONT_LEFT), mIntensity); }
                 return false;
             }
         });
@@ -109,7 +109,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((MID_FRONT), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((MID_FRONT), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((MID_FRONT), mIntensity); }
                 return false;
             }
         });
@@ -117,7 +117,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((MID_RIGHT), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((MID_RIGHT), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((MID_RIGHT), mIntensity); }
                 return false;
             }
         });
@@ -125,7 +125,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((MID_BACK), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((MID_BACK), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((MID_BACK), mIntensity); }
                 return false;
             }
         });
@@ -133,7 +133,7 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor((MID_LEFT), OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((MID_LEFT), ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor((MID_LEFT), mIntensity); }
                 return false;
             }
         });
@@ -141,9 +141,15 @@ public class OmniWearDevice {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) { btService.setMotor(TOP, OFF); }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor(TOP, ON); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { btService.setMotor(TOP, mIntensity); }
                 return false;
             }
         });
+    }
+
+    // Set the intensity variable.
+    public static void setmIntensity(int intensity) {
+        mIntensity = (byte) intensity;
+        Log.i(TAG, "Intensity set to: " + intensity);
     }
 }

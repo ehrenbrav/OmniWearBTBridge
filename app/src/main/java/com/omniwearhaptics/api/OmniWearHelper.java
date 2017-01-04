@@ -32,7 +32,6 @@ public class OmniWearHelper {
 	public static final int DEVICETYPE_CAP = 0;
 	public static final int DEVICETYPE_NECKBAND = 1;
 	
-	
     public static final int FRONT =        0;
     public static final int BACK =         1;
     public static final int RIGHT =        2;
