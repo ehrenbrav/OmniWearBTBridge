@@ -1,6 +1,5 @@
 package com.omniwearhaptics.omniwearbtbridge;
 
-import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -29,9 +28,9 @@ import static android.bluetooth.BluetoothProfile.STATE_DISCONNECTED;
  * Created by ehrenbrav on 11/23/16.
  */
 
-class OmniWearBluetoothService {
+public class OmniWearDriver {
 
-    private static final String TAG = "OmniWearBluetoothService";
+    private static final String TAG = "OmniWearDriver";
 
     private static final String PREFS_NAME = "OmniWearPrefs";
     private static final String BT_NAME = "OmniWear";
@@ -42,10 +41,10 @@ class OmniWearBluetoothService {
     private static final int REQUEST_ENABLE_BT = 3;
 
     // Constants that indicate the current connection state
-    private static final int STATE_NONE = 0;
-    private static final int STATE_SEARCHING = 1;
-    private static final int STATE_CONNECTING = 2;
-    private static final int STATE_CONNECTED = 3;
+    public static final int STATE_NONE = 0;
+    public static final int STATE_SEARCHING = 1;
+    public static final int STATE_CONNECTING = 2;
+    public static final int STATE_CONNECTED = 3;
 
     private final BluetoothAdapter mBluetoothAdapter;
     private BluetoothGatt mBluetoothGatt = null;
@@ -55,7 +54,7 @@ class OmniWearBluetoothService {
     private Handler mHandler;
 
     // Constructor to check support for BT LE.
-    OmniWearBluetoothService(Activity activity) {
+    public OmniWearDriver(Context activity) {
 
         // Initializes Bluetooth adapter.
         final BluetoothManager bluetoothManager =
@@ -64,48 +63,24 @@ class OmniWearBluetoothService {
 
         // If the adapter is null, then Bluetooth is not supported
         if (mBluetoothAdapter == null) {
-            Toast.makeText(activity.getApplicationContext(), "Bluetooth is not available", Toast.LENGTH_LONG).show();
-            activity.finish();
+            Log.e(TAG, "Bluetooth is not available");
+            return;
         }
 
         // Use this check to determine whether BLE is supported on the device. Then
         // you can selectively disable BLE-related features.
         if (!activity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-            Toast.makeText(activity, R.string.ble_not_supported, Toast.LENGTH_SHORT).show();
-            activity.finish();
+            Log.e(TAG, "BLE not supported");
+            return;
         }
 
         // Set up the handler.
         mHandler = new Handler();
     }
 
-    // This should be called each time the app comes into focus.
-    void resume(MainActivity activity) {
-
-        // Ensures Bluetooth is available on the device and it is enabled. If not,
-        // displays a dialog requesting user permission to enable Bluetooth.
-        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            activity.startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        }
-
-        if (mState == STATE_NONE) {
-
-            // Check if there is a known OmniWear Device.
-            SharedPreferences settings = activity.getSharedPreferences(PREFS_NAME, 0);
-            String saved_mac = settings.getString(SAVED_MAC_PREF_NAME, "");
-
-            // If so, try to connect with that device.
-            if (!saved_mac.equals("")) {
-                BluetoothDevice omniwearDevice = mBluetoothAdapter.getRemoteDevice(saved_mac);
-                connect(omniwearDevice, activity);
-            }
-        }
-    }
 
     // Cleanup.
-    void stop(MainActivity activity) {
-
+    public void stop() {
         Log.d(TAG, "stop");
         if (mBluetoothGatt == null) {
             return;
@@ -114,12 +89,11 @@ class OmniWearBluetoothService {
         mBluetoothGatt = null;
         mOmniWearDeviceService = null;
         mOmniWearDeviceCharacteristic = null;
-        activity.setStatusMessage(activity.getString(R.string.status_not_connected));
         setState(STATE_NONE);
     }
 
     // Write the characteristic to the device to command a motor.
-    void commandMotor(byte motor, byte intensity) {
+    public void commandMotor(byte motor, byte intensity) {
 
         // Check if we're connected.
         if (mState != STATE_CONNECTED || mBluetoothGatt == null) {
@@ -145,11 +119,10 @@ class OmniWearBluetoothService {
     }
 
     // Serch for a new OmniWear device.
-    void search(final MainActivity activity) {
+    public void search(final Context activity) {
 
         // Set up the BT LE scanner.
         final BluetoothLeScanner scanner = mBluetoothAdapter.getBluetoothLeScanner();
-        Toast.makeText(activity, "Starting scan...", Toast.LENGTH_LONG).show();
 
         // Callback function for the BT scanner.
         final ScanCallback btCallback = new ScanCallback() {
@@ -165,9 +138,9 @@ class OmniWearBluetoothService {
                 Log.d(TAG, msg);
 
                 String deviceName = device.getName();
-                if (null == deviceName) { return; }
+                if (deviceName == null || deviceName.isEmpty() ) { return; }
 
-                if (device.getName().equals(OmniWearBluetoothService.BT_NAME)) {
+                if (device.getName().equals(OmniWearDriver.BT_NAME)) {
 
                     // Stop scanning.
                     scanner.stopScan(this);
@@ -177,9 +150,6 @@ class OmniWearBluetoothService {
 
                     // Save the address in the preferences.
                     setSaved_mac(saved_mac, activity);
-
-                    // Change the button text.
-                    activity.setButtonText(activity.getString(R.string.forget_device));
 
                     // Try to connect.
                     connect(device, activity);
@@ -209,11 +179,7 @@ class OmniWearBluetoothService {
 
                 // If we didn't find our device, notify user.
                 if (mState == STATE_SEARCHING) {
-                    activity.setStatusMessage(activity.getString(R.string.status_not_connected));
-                    Toast.makeText(activity.getApplicationContext(),
-                            activity.getText(R.string.device_not_found),
-                            Toast.LENGTH_LONG
-                    ).show();
+                    Log.e(TAG, "Device not found");
                     setState(STATE_NONE);
                 }
             }
@@ -221,14 +187,14 @@ class OmniWearBluetoothService {
     }
 
     // Check if there's a saved MAC.
-    static String getSaved_mac(Activity activity) {
+    public static String getSaved_mac(Context activity) {
 
         SharedPreferences settings = activity.getSharedPreferences(PREFS_NAME, 0);
         return settings.getString(SAVED_MAC_PREF_NAME, "");
     }
 
     // Set the MAC.
-    static void setSaved_mac(String mac, Activity activity) {
+    public static void setSaved_mac(String mac, Context activity) {
 
         SharedPreferences settings = activity.getSharedPreferences(PREFS_NAME, 0);
         SharedPreferences.Editor editor = settings.edit();
@@ -241,13 +207,14 @@ class OmniWearBluetoothService {
         mState = state;
     }
 
+    public int getState(){
+    	return mState;
+    }
+    
     // Connect to the OmniWear device.
-    private void connect(BluetoothDevice device, final MainActivity activity) {
+    public void connect(BluetoothDevice device, final Context activity) {
 
         Log.d(TAG, "Attempting to connect to: " + device);
-
-        // Indicate the status.
-        activity.setStatusMessage(activity.getString(R.string.status_connecting));
 
         // Callbacks for interacting with the OmniWear Device.
         BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
@@ -256,14 +223,6 @@ class OmniWearBluetoothService {
             public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
 
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-
-                    // Connected - notify user and discover services.
-                    mHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            activity.setStatusMessage(activity.getString(R.string.status_connected));
-                        }
-                    });
                     setState(STATE_CONNECTED);
                     Log.i(TAG, "Connected.");
                     Log.i(TAG, "Attempting to start service discovery:" +
@@ -271,13 +230,6 @@ class OmniWearBluetoothService {
 
                 } else if (newState == STATE_DISCONNECTED) {
 
-                    // Disconnected - notify user.
-                    mHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            activity.setStatusMessage(activity.getString(R.string.status_not_connected));
-                        }
-                    });
                     setState(STATE_NONE);
                     Log.i(TAG, "Not connected.");
                 }
@@ -293,9 +245,8 @@ class OmniWearBluetoothService {
 
                         // Weird - forget the device.
                         Log.w(TAG, "OmniWear service not found.");
-                        OmniWearBluetoothService.setSaved_mac("", activity);
-                        activity.setButtonText(activity.getString(R.string.pair_device));
-                        stop(activity);
+                        OmniWearDriver.setSaved_mac("", activity);
+                        stop();
                     } else {
                         Log.i(TAG, "OmniWear service discovered.");
 

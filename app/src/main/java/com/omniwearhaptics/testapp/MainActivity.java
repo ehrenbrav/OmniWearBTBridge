@@ -1,11 +1,6 @@
-package com.omniwearhaptics.omniwearbtbridge;
+package com.omniwearhaptics.testapp;
 
-import android.Manifest;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.support.v4.app.ActivityCompat;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
@@ -14,6 +9,8 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.ViewAnimator;
 
+import com.omniwearhaptics.api.OmniWearHelper;
+import com.omniwearhaptics.omniwearbtbridge.R;
 import com.omniwearhaptics.omniwearbtbridge.common.ActivityBase;
 import com.omniwearhaptics.omniwearbtbridge.logger.Log;
 import com.omniwearhaptics.omniwearbtbridge.logger.LogFragment;
@@ -30,14 +27,12 @@ import com.omniwearhaptics.omniwearbtbridge.logger.MessageOnlyLogFilter;
 public class MainActivity extends ActivityBase {
 
     public static final String TAG = "MainActivity";
-    public static final int CAP = 0;
-    public static final int NECKBAND = 1;
-
-    private static final int PERMISSION_REQUEST_FINE_LOCATION = 3;
+ 
 
     private boolean mLogShown = false;
-    private static int mDeviceType = NECKBAND;
-    private static OmniWearBluetoothService mBTManager = null;
+    private static int mDeviceType = OmniWearHelper.DEVICETYPE_NECKBAND;
+
+    private OmniWearHelper mHelper;
     private static OmniWearDevice mOmniwearButtons = null;
 
     @Override
@@ -46,31 +41,6 @@ public class MainActivity extends ActivityBase {
 
         // Set up the view.
         setContentView(R.layout.activity_main);
-
-        // Set up the BT Service.
-        mBTManager = new OmniWearBluetoothService(this);
-
-        // Set up the button controller.
-        mOmniwearButtons = new OmniWearDevice(this, mBTManager);
-
-        // Android M Permission check 
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-
-            final AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setTitle("This app needs location access");
-            builder.setMessage("Please grant location access so this app can do a BlueTooth search.");
-            builder.setPositiveButton(android.R.string.ok, null);
-            builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
-                @Override
-                public void onDismiss(DialogInterface dialogInterface) {
-                    //requestPermissions(new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_COARSE_LOCATION);
-                    ActivityCompat.requestPermissions(MainActivity.this,
-                            new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                            PERMISSION_REQUEST_FINE_LOCATION);
-                }
-            });
-            builder.show();
-        }
 
         // Set up the intensity slider.
         SeekBar intensitySlider = (SeekBar) findViewById(R.id.intensitySlider);
@@ -92,81 +62,51 @@ public class MainActivity extends ActivityBase {
         });
     }
 
-    // Handle getting permissions to do a BT search.
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
-
-        switch (requestCode) {
-            case PERMISSION_REQUEST_FINE_LOCATION: {
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "coarse location permission granted");
-                } else {
-                    final AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                    builder.setTitle("Functionality limited");
-                    builder.setMessage("Since location access has not been granted, this app will not work.");
-                    builder.setPositiveButton(android.R.string.ok, null);
-                    builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
-
-                        @Override
-                        public void onDismiss(DialogInterface dialog) {
-                        }
-
-                    });
-                    builder.show();
-                }
-            }
-        }
-    }
 
     @Override
     public void onResume() {
         super.onResume();
 
-        // See if BT is enabled.
-        mBTManager.resume(this);
-
         // Set default options.
         setStatusMessage(getString(R.string.status_not_connected));
         RadioButton radioButton = (RadioButton) findViewById(R.id.radio_neckband);
         radioButton.performClick();
-        mDeviceType = NECKBAND;
+        mDeviceType = OmniWearHelper.DEVICETYPE_NECKBAND;
         Button logButton = (Button) findViewById(R.id.button_toggle_log);
         logButton.setText(R.string.show_log);
         ViewAnimator logFragment = (ViewAnimator) findViewById(R.id.log_fragment_animator);
         logFragment.setVisibility(View.INVISIBLE);
 
-        // If no device is known, ask to pair.
-        if (OmniWearBluetoothService.getSaved_mac(this).equals("")) {
-            setButtonText(getString(R.string.pair_device));
-        } else {
-            setButtonText(getString(R.string.forget_device));
-        }
+        setButtonText(getString(R.string.pair_device));
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        mBTManager.stop(this);
+        mHelper.shutdown();
+        // Force quitting the app since we should actually be disabling all the buttons here (but we aren't).
+        // If we didn't force quit here, we'd have a crash later on if we tried to use the buttons before pairing.
+        finish();
     }
 
     // Handle forgetting and pairing of the device.
     public void onPairingButtonClicked(View view) {
+        Button pairingButton = (Button) findViewById(R.id.button_pairing);
+        pairingButton.setEnabled(false);
+    	mHelper = new OmniWearHelper(this, mDeviceType, new Runnable(){
+			@Override
+			public void run() {
+				runOnUiThread(new Runnable(){
+					@Override
+					public void run() {
+			            setStatusMessage(getString(R.string.status_connected));
+					}
+				});
+			}
+    	});
+    	mOmniwearButtons = new OmniWearDevice(this, mHelper);
 
-        if (OmniWearBluetoothService.getSaved_mac(this).equals("")) {
-
-            // Indicate the status.
-            setStatusMessage(getString(R.string.status_searching));
-
-            // Look for the OmniWear Device.
-            mBTManager.search(this);
-
-        } else {
-
-            // Forget the saved MAC.
-            OmniWearBluetoothService.setSaved_mac("", this);
-            setButtonText(getString(R.string.pair_device));
-            mBTManager.stop(this);
-        }
+    	setStatusMessage(getString(R.string.status_searching));
     }
 
     // Show or toggle the log.
@@ -201,7 +141,7 @@ public class MainActivity extends ActivityBase {
                     findViewById(R.id.button_middle_left).setVisibility(View.VISIBLE);
                     findViewById(R.id.button_middle_right).setVisibility(View.VISIBLE);
                     findViewById(R.id.button_top).setVisibility(View.VISIBLE);
-                    mDeviceType = CAP;
+                    mDeviceType = OmniWearHelper.DEVICETYPE_CAP;
 
                 break;
             case R.id.radio_neckband:
@@ -212,7 +152,7 @@ public class MainActivity extends ActivityBase {
                     findViewById(R.id.button_middle_left).setVisibility(View.INVISIBLE);
                     findViewById(R.id.button_middle_right).setVisibility(View.INVISIBLE);
                     findViewById(R.id.button_top).setVisibility(View.INVISIBLE);
-                    mDeviceType = NECKBAND;
+                    mDeviceType =  OmniWearHelper.DEVICETYPE_NECKBAND;
                     break;
         }
     }
