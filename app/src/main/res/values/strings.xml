@@ -15,9 +15,6 @@
     <string name="forget_device">Forget Device</string>
 
     <!-- Screen UI -->
-    <string name="haptic_device_type">Haptic Device Type:</string>
-    <string name="cap">Cap</string>
-    <string name="neckband">Neckband</string>
     <string name="show_log">Show Log</string>
     <string name="hide_log">Hide Log</string>
     <string name="front_label">Front</string>

@@ -5,10 +5,16 @@
  */
 package com.omniwearhaptics.api;
 
+import com.omniwearhaptics.api.IOmniWearCallback;
+
 interface IOmniWear {
-   void connectToDevice(String deviceMacAddress);
+   void registerCallback(IOmniWearCallback callback);
+   void unregisterCallback();
+   void searchForOmniWearDevice();
+   void connectToKnownDevice(String deviceMacAddress);
    int getConnectedDeviceType();
-   void setMotor(int motorId, byte intensity);   
+   String getConnectedDeviceMAC();
+   void setMotor(byte motorId, byte intensity);
+   int getState();
    void disconnect();
-   void setDeviceType(int deviceType);
 }

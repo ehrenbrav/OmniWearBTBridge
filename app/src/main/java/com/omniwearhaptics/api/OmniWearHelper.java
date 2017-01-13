@@ -25,106 +25,185 @@ import android.os.RemoteException;
 /**
  * Public facing API for interacting with OmniWear devices.
  * 
- * @author Charles L. Chen (clc)
+ * @author Charles L. Chen (clc) and Ehren J. Brav (ehrenbrav)
  */
 public class OmniWearHelper {
-	public static final int DEVICETYPE_ERROR = -1;
-	public static final int DEVICETYPE_CAP = 0;
-	public static final int DEVICETYPE_NECKBAND = 1;
-	
-    public static final int FRONT =        0;
-    public static final int BACK =         1;
-    public static final int RIGHT =        2;
-    public static final int LEFT =         3;
-    public static final int FRONT_RIGHT =  4;
-    public static final int FRONT_LEFT =   5;
-    public static final int BACK_RIGHT =   6;
-    public static final int BACK_LEFT =    7;
-    public static final int MID_FRONT =    8;
-    public static final int MID_RIGHT =    9;
-    public static final int MID_BACK =     10;
-    public static final int MID_LEFT =     11;
-    public static final int TOP =          12;
 
-    public static final byte OFF =          0;
-    public static final byte ON =           100;
+    // Constants for the device type.
+	public static final byte DEVICETYPE_ERROR = 0x0;
+	public static final byte DEVICETYPE_CAP = 0x1;
+	public static final byte DEVICETYPE_NECKBAND = 0x2;
+	public static final byte DEVICETYPE_WRISTBAND = 0x3;
 
-    
+    // Constants that indicate the current connection state
+    public static final int STATE_NONE = 0;
+    public static final int STATE_SEARCHING = 1;
+    public static final int STATE_CONNECTING = 2;
+    public static final int STATE_CONNECTED = 3;
+
+    // Motor IDs.
+    public static final byte FRONT =        0x0;
+    public static final byte BACK =         0x1;
+    public static final byte RIGHT =        0x2;
+    public static final byte LEFT =         0x3;
+    public static final byte FRONT_RIGHT =  0x4;
+    public static final byte FRONT_LEFT =   0x5;
+    public static final byte BACK_RIGHT =   0x6;
+    public static final byte BACK_LEFT =    0x7;
+    public static final byte MID_FRONT =    0x8;
+    public static final byte MID_BACK =     0x9;
+    public static final byte MID_RIGHT =    0xa;
+    public static final byte MID_LEFT =     0xb;
+    public static final byte TOP =          0xc;
+
+    // Motor off constant.
+    public static final byte OFF =          0x0;
+
+    // Private fields relating to the OmniWear service.
 	private ServiceConnection mServiceConnection;
 	private Context mParent;
-	private IOmniWear mOmniWear;
-		
-	public OmniWearHelper(final Context ctx, final int deviceType, final Runnable onConnected) {
-		mParent = ctx;
+	private IOmniWear mOmniWearInterface;
+
+    // Callback functions that the client app implements.
+    private OnStateChangeListener mOnStateChangeListener;
+    public interface OnStateChangeListener {
+        void OnStateChange(int newState);
+    }
+    private IOmniWearCallback mCallback = new IOmniWearCallback.Stub() {
+
+        public void onStateChange(int newState) throws RemoteException {
+            if (mOnStateChangeListener != null) {
+                mOnStateChangeListener.OnStateChange(newState);
+            }
+        }
+    };
+
+    // Start everything. If deviceMAC is empty, search for any OmniWear device.
+	public OmniWearHelper(final Context context, OnStateChangeListener listener) {
+
+		mParent = context;
+        mOnStateChangeListener = listener;
 		Intent intent = new Intent();
 		intent.setClassName("com.omniwearhaptics.omniwearbtbridge",
 				"com.omniwearhaptics.omniwearbtbridge.OmniWearService");
+
+        // Connect to the OmniWear service.
 		mServiceConnection = new ServiceConnection() {
+
+            // When the service is bound, try to connect to the device.
 			public void onServiceConnected(ComponentName name, IBinder service) {
-				mOmniWear = IOmniWear.Stub.asInterface(service);
-				try {
-					mOmniWear.setDeviceType(deviceType);
-					mOmniWear.connectToDevice("");
-					if (onConnected != null){
-						waitForConnection(onConnected);
-					}
-				} catch (RemoteException e) {
-					e.printStackTrace();
-				}
+
+                // Create the interface.
+				mOmniWearInterface = IOmniWear.Stub.asInterface(service);
 			}
+
 			public void onServiceDisconnected(ComponentName name) {
+                try {
+                    mOmniWearInterface.unregisterCallback();
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
 			}
 		};
-		ctx.bindService(intent, mServiceConnection,
+		context.bindService(intent, mServiceConnection,
 				Context.BIND_AUTO_CREATE);
 	}
-	
-	private void waitForConnection(final Runnable onConnected){
-		new Thread(new Runnable(){
-			@Override
-			public void run() {
-				try {
-					Thread.sleep(500);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				try {
-					if (mOmniWear == null){
-						return;
-					}
-					if (mOmniWear.getConnectedDeviceType() != DEVICETYPE_ERROR) {
-						new Thread(onConnected).start();
-					} else {
-						waitForConnection(onConnected);
-					}
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}			
-		}).start();
-	}
-	
-	public void shutdown(){
-		try {
-			mOmniWear.disconnect();
-		} catch (RemoteException e) {
-			e.printStackTrace();
-		}
+
+	public void shutdown() {
+
+        disconnect();
 		if (mServiceConnection != null) {
-			mOmniWear = null;
+			mOmniWearInterface = null;
 			mParent.unbindService(mServiceConnection);
 			mServiceConnection = null;
+            mOnStateChangeListener = null;
 		}
 	}
-	
-	public void setMotor(int motorId, byte intensity){
-		if (mOmniWear != null){
+
+    public void disconnect() {
+
+        if (mOmniWearInterface != null) {
+            try {
+                mOmniWearInterface.disconnect();
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Search for a new OmniWear device.
+    public void searchForOmniWearDevice() {
+
+        if (mOmniWearInterface != null) {
+            try {
+                mOmniWearInterface.searchForOmniWearDevice();
+                mOmniWearInterface.registerCallback(mCallback);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Connect to a known OmniWear device.
+    public void connectToKnownDevice(String deviceMAC) {
+
+        if (mOmniWearInterface != null) {
+            try {
+                mOmniWearInterface.connectToKnownDevice(deviceMAC);
+                mOmniWearInterface.registerCallback(mCallback);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+	public void setMotor(byte motorId, byte intensity) {
+
+		if (mOmniWearInterface != null){
 			try {
-				mOmniWear.setMotor(motorId, intensity);
+				mOmniWearInterface.setMotor(motorId, intensity);
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
 		}		
 	}
-	
+
+    // Read the device type using BT.
+    public int getConnectedDeviceType() {
+
+        if (mOmniWearInterface != null) {
+            try {
+                return mOmniWearInterface.getConnectedDeviceType();
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+        return DEVICETYPE_ERROR;
+    }
+
+    // Return the MAC of the connected device.
+    public String getConnectedDeviceMAC() {
+
+        if (mOmniWearInterface != null) {
+            try {
+                return mOmniWearInterface.getConnectedDeviceMAC();
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+        return "";
+    }
+
+    // Get the connection state.
+    public int getState() {
+
+        if (mOmniWearInterface != null) {
+            try {
+                return mOmniWearInterface.getState();
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+        return STATE_NONE;
+    }
 }

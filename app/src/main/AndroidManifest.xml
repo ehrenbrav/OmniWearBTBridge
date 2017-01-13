@@ -26,7 +26,6 @@
             android:screenOrientation="portrait" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -37,7 +36,6 @@
             android:label="OmniWearService" >
             <intent-filter>
                 <action android:name="com.omniwearhaptics.omniwearbtbridge.action.OMNIWEAR_SERVICE" />
-
                 <category android:name="com.omniwearhaptics.omniwearbtbridge.category.OMNIWEAR_SERVICE" />
             </intent-filter>
         </service>

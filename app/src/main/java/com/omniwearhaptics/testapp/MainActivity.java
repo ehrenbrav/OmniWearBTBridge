@@ -1,10 +1,11 @@
 package com.omniwearhaptics.testapp;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
-import android.widget.RadioButton;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.ViewAnimator;
@@ -27,13 +28,12 @@ import com.omniwearhaptics.omniwearbtbridge.logger.MessageOnlyLogFilter;
 public class MainActivity extends ActivityBase {
 
     public static final String TAG = "MainActivity";
- 
 
-    private boolean mLogShown = false;
-    private static int mDeviceType = OmniWearHelper.DEVICETYPE_NECKBAND;
-
-    private OmniWearHelper mHelper;
-    private static OmniWearDevice mOmniwearButtons = null;
+    private static boolean mLogShown = false;
+    private static OmniWearHelper mHelper;
+    private static byte mIntensity = 100;
+    private static final String PREFS_NAME = "OmniWearPrefs";
+    private static final String SAVED_MAC_PREF_NAME = "omniwear_device_mac";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +47,7 @@ public class MainActivity extends ActivityBase {
         intensitySlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int intensity, boolean b) {
-                mOmniwearButtons.setmIntensity(intensity);
+                setIntensity(intensity);
             }
 
             @Override
@@ -62,22 +62,54 @@ public class MainActivity extends ActivityBase {
         });
     }
 
-
     @Override
     public void onResume() {
         super.onResume();
 
         // Set default options.
         setStatusMessage(getString(R.string.status_not_connected));
-        RadioButton radioButton = (RadioButton) findViewById(R.id.radio_neckband);
-        radioButton.performClick();
-        mDeviceType = OmniWearHelper.DEVICETYPE_NECKBAND;
         Button logButton = (Button) findViewById(R.id.button_toggle_log);
         logButton.setText(R.string.show_log);
         ViewAnimator logFragment = (ViewAnimator) findViewById(R.id.log_fragment_animator);
         logFragment.setVisibility(View.INVISIBLE);
 
-        setButtonText(getString(R.string.pair_device));
+        // Create the OmniWear helper.
+        mHelper = new OmniWearHelper(this, new OmniWearHelper.OnStateChangeListener() {
+
+            @Override
+            public void OnStateChange(int newState) {
+
+                switch(newState) {
+
+                    case OmniWearHelper.STATE_CONNECTING:
+                        setStatusMessage(getString(R.string.status_connecting));
+                        break;
+                    case OmniWearHelper.STATE_CONNECTED:
+                        configButtonUI();
+                        configButtonVisibility();
+                        setSaved_mac(mHelper.getConnectedDeviceMAC());
+                        setButtonText(getString(R.string.forget_device));
+                        setStatusMessage(getString(R.string.status_connected));
+                        break;
+                    case OmniWearHelper.STATE_SEARCHING:
+                        setStatusMessage(getString(R.string.status_searching));
+                        break;
+                    case OmniWearHelper.STATE_NONE:
+                        setStatusMessage(getString(R.string.status_not_connected));
+                        configButtonVisibility();
+                        break;
+                }
+            }
+        });
+
+        // If there's a saved MAC, try to connect.
+        String savedMAC = getSaved_mac();
+        if (savedMAC.equals("")) {
+            setButtonText(getString(R.string.pair_device));
+        } else {
+            setButtonText(getString(R.string.forget_device));
+            mHelper.connectToKnownDevice(savedMAC);
+        }
     }
 
     @Override
@@ -91,22 +123,28 @@ public class MainActivity extends ActivityBase {
 
     // Handle forgetting and pairing of the device.
     public void onPairingButtonClicked(View view) {
-        Button pairingButton = (Button) findViewById(R.id.button_pairing);
-        pairingButton.setEnabled(false);
-    	mHelper = new OmniWearHelper(this, mDeviceType, new Runnable(){
-			@Override
-			public void run() {
-				runOnUiThread(new Runnable(){
-					@Override
-					public void run() {
-			            setStatusMessage(getString(R.string.status_connected));
-					}
-				});
-			}
-    	});
-    	mOmniwearButtons = new OmniWearDevice(this, mHelper);
 
-    	setStatusMessage(getString(R.string.status_searching));
+        Button pairingButton = (Button) findViewById(R.id.button_pairing);
+
+        // Handle pairing
+        if (pairingButton.getText().equals(getString(R.string.pair_device))) {
+
+            // Search for a new OmniWear device.
+            mHelper.searchForOmniWearDevice();
+        } else if (pairingButton.getText().equals(getString(R.string.forget_device))) {
+
+            // Delete the saved MAC.
+            setSaved_mac("");
+
+            // Allow the user to search for a new device.
+            setButtonText(getString(R.string.pair_device));
+
+            // Disconnect from any existing device.
+            mHelper.disconnect();
+
+        } else {
+            Log.e(TAG, "paringButton text is in unknown state.");
+        }
     }
 
     // Show or toggle the log.
@@ -123,55 +161,6 @@ public class MainActivity extends ActivityBase {
             button.setText(R.string.hide_log);
             mLogShown = true;
         }
-    }
-
-    // Hides or shows the buttons that differ between Cap and Neckband.
-    public void onRadioButtonClicked(View view) {
-
-        // Is the button now checked?
-        boolean checked = ((RadioButton) view).isChecked();
-
-        // Check which radio button was clicked
-        switch(view.getId()) {
-            case R.id.radio_cap:
-                if (checked)
-                    // Show cap-only buttons.
-                    findViewById(R.id.button_middle_back).setVisibility(View.VISIBLE);
-                    findViewById(R.id.button_middle_front).setVisibility(View.VISIBLE);
-                    findViewById(R.id.button_middle_left).setVisibility(View.VISIBLE);
-                    findViewById(R.id.button_middle_right).setVisibility(View.VISIBLE);
-                    findViewById(R.id.button_top).setVisibility(View.VISIBLE);
-                    mDeviceType = OmniWearHelper.DEVICETYPE_CAP;
-
-                break;
-            case R.id.radio_neckband:
-                if (checked)
-                    // Hide cap-only buttons.
-                    findViewById(R.id.button_middle_back).setVisibility(View.INVISIBLE);
-                    findViewById(R.id.button_middle_front).setVisibility(View.INVISIBLE);
-                    findViewById(R.id.button_middle_left).setVisibility(View.INVISIBLE);
-                    findViewById(R.id.button_middle_right).setVisibility(View.INVISIBLE);
-                    findViewById(R.id.button_top).setVisibility(View.INVISIBLE);
-                    mDeviceType =  OmniWearHelper.DEVICETYPE_NECKBAND;
-                    break;
-        }
-    }
-
-    // Set the status message on the screen.
-    public void setStatusMessage(String msg) {
-        TextView textView = (TextView) findViewById(R.id.connection_status);
-        textView.setText(msg);
-    }
-
-    // Set the button text.
-    public void setButtonText(String msg) {
-        Button pairingButton = (Button) findViewById(R.id.button_pairing);
-        pairingButton.setText(msg);
-    }
-
-    // Get the type of device selected.
-    public static int getDeviceType() {
-        return mDeviceType;
     }
 
     @Override
@@ -209,5 +198,235 @@ public class MainActivity extends ActivityBase {
         msgFilter.setNext(logFragment.getLogView());
 
         Log.i(TAG, "Ready");
+    }
+
+    // Set the intensity variable.
+    private static void setIntensity(int intensity) {
+        mIntensity = (byte) intensity;
+        Log.i(TAG, "Intensity set to: " + intensity);
+    }
+
+    // Configure the behavior of the buttons.
+    private void configButtonUI() {
+
+        // Error check.
+        if (mHelper == null) {
+            Log.e(TAG, "mHelper null in configButtonUI");
+            return;
+        }
+
+        // Set up touch listeners on the motor buttons.
+        findViewById(R.id.button_front).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.FRONT), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.FRONT), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_front_right).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.FRONT_RIGHT), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.FRONT_RIGHT), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_right).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.RIGHT), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.RIGHT), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_back_right).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.BACK_RIGHT), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.BACK_RIGHT), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_back).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.BACK), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.BACK), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_back_left).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.BACK_LEFT), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.BACK_LEFT), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_left).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.LEFT), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.LEFT), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_front_left).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.FRONT_LEFT), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.FRONT_LEFT), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_middle_front).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.MID_FRONT), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.MID_FRONT), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_middle_right).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.MID_RIGHT), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.MID_RIGHT), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_middle_back).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.MID_BACK), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.MID_BACK), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_middle_left).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor((OmniWearHelper.MID_LEFT), OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor((OmniWearHelper.MID_LEFT), mIntensity); }
+                return false;
+            }
+        });
+        findViewById(R.id.button_top).setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_UP) { mHelper.setMotor(OmniWearHelper.TOP, OmniWearHelper.OFF); }
+                if (event.getAction() == MotionEvent.ACTION_DOWN) { mHelper.setMotor(OmniWearHelper.TOP, mIntensity); }
+                return false;
+            }
+        });
+    }
+
+    // Hides or shows the buttons that differ between device types.
+    private void configButtonVisibility() {
+
+        // Error check.
+        if (mHelper == null) {
+            Log.e(TAG, "mHelper null in configButtonVisibility");
+            return;
+        }
+
+        // Query the device for how many motors it has.
+        int deviceType = mHelper.getConnectedDeviceType();
+
+        switch(deviceType) {
+            case OmniWearHelper.DEVICETYPE_CAP:
+                // Show cap-only buttons.
+                findViewById(R.id.button_middle_back).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_middle_front).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_middle_left).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_middle_right).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_top).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_front).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_front_right).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_right).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_back_right).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_back).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_back_left).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_left).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_front_left).setVisibility(View.VISIBLE);
+                break;
+            case OmniWearHelper.DEVICETYPE_NECKBAND:
+                // Hide cap-only buttons.
+                findViewById(R.id.button_middle_back).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_middle_front).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_middle_left).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_middle_right).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_top).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_front).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_front_right).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_right).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_back_right).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_back).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_back_left).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_left).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_front_left).setVisibility(View.VISIBLE);
+                break;
+            case OmniWearHelper.DEVICETYPE_WRISTBAND:
+                // Show only the single button.
+                findViewById(R.id.button_middle_back).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_middle_front).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_middle_left).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_middle_right).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_top).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_front).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_front_right).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_right).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_back_right).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_back).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_back_left).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_left).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_front_left).setVisibility(View.INVISIBLE);
+                break;
+            case OmniWearHelper.DEVICETYPE_ERROR:
+                // Hide everything.
+                findViewById(R.id.button_middle_back).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_middle_front).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_middle_left).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_middle_right).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_top).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_front).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_front_right).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_right).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_back_right).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_back).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_back_left).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_left).setVisibility(View.INVISIBLE);
+                findViewById(R.id.button_front_left).setVisibility(View.INVISIBLE);
+                break;
+        }
+    }
+
+    // Set the status message on the screen.
+    private void setStatusMessage(String msg) {
+        TextView textView = (TextView) findViewById(R.id.connection_status);
+        textView.setText(msg);
+    }
+
+    // Set the button text.
+    private void setButtonText(String msg) {
+        Button pairingButton = (Button) findViewById(R.id.button_pairing);
+        pairingButton.setText(msg);
+    }
+
+    // Check if there's a saved MAC.
+    private String getSaved_mac() {
+
+        SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+        return settings.getString(SAVED_MAC_PREF_NAME, "");
+    }
+
+    // Set the MAC.
+    private void setSaved_mac(String mac) {
+
+        SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString(SAVED_MAC_PREF_NAME, mac);
+        editor.apply();
     }
 }
