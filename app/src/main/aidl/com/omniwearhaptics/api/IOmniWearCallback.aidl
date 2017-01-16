@@ -5,5 +5,5 @@ package com.omniwearhaptics.api;
 
 interface IOmniWearCallback {
 
-    void onStateChange(int newState);
+    void onOmniWearEvent(int newState);
 }

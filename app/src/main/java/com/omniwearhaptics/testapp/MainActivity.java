@@ -1,5 +1,8 @@
 package com.omniwearhaptics.testapp;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.MenuItem;
@@ -8,6 +11,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.ViewAnimator;
 
 import com.omniwearhaptics.api.OmniWearHelper;
@@ -73,49 +77,70 @@ public class MainActivity extends ActivityBase {
         ViewAnimator logFragment = (ViewAnimator) findViewById(R.id.log_fragment_animator);
         logFragment.setVisibility(View.INVISIBLE);
 
-        // Create the OmniWear helper.
-        mHelper = new OmniWearHelper(this, new OmniWearHelper.OnStateChangeListener() {
+        // Initializes Bluetooth adapter.
+        final BluetoothManager bluetoothManager =
+                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
 
-            @Override
-            public void OnStateChange(int newState) {
-
-                switch(newState) {
-
-                    case OmniWearHelper.STATE_CONNECTING:
-                        setStatusMessage(getString(R.string.status_connecting));
-                        break;
-                    case OmniWearHelper.STATE_CONNECTED:
-                        configButtonUI();
-                        configButtonVisibility();
-                        setSaved_mac(mHelper.getConnectedDeviceMAC());
-                        setButtonText(getString(R.string.forget_device));
-                        setStatusMessage(getString(R.string.status_connected));
-                        break;
-                    case OmniWearHelper.STATE_SEARCHING:
-                        setStatusMessage(getString(R.string.status_searching));
-                        break;
-                    case OmniWearHelper.STATE_NONE:
-                        setStatusMessage(getString(R.string.status_not_connected));
-                        configButtonVisibility();
-                        break;
-                }
-            }
-        });
-
-        // If there's a saved MAC, try to connect.
-        String savedMAC = getSaved_mac();
-        if (savedMAC.equals("")) {
-            setButtonText(getString(R.string.pair_device));
+        // Ensures Bluetooth is enabled. If so, enable Helper.
+        if (!bluetoothAdapter.isEnabled()) {
+            Toast.makeText(this, "Please enable BlueTooth", Toast.LENGTH_LONG).show();
+            finish();
         } else {
-            setButtonText(getString(R.string.forget_device));
-            mHelper.connectToKnownDevice(savedMAC);
+
+            // Create the OmniWear helper.
+            mHelper = new OmniWearHelper(this, new OmniWearHelper.OnOmniWearEventListener() {
+
+                @Override
+                public void OnOmniWearEvent(int event) {
+
+                    switch (event) {
+
+                        case OmniWearHelper.EVENT_STATE_CONNECTING:
+                            setStatusMessage(getString(R.string.status_connecting));
+                            break;
+                        case OmniWearHelper.EVENT_STATE_CONNECTED:
+                            configButtonUI();
+                            configButtonVisibility();
+                            setSaved_mac(mHelper.getConnectedDeviceMAC());
+                            setButtonText(getString(R.string.forget_device));
+                            setStatusMessage(getString(R.string.status_connected));
+                            Toast.makeText(MainActivity.this, "Connected to OmniWear Device", Toast.LENGTH_SHORT).show();
+                            break;
+                        case OmniWearHelper.EVENT_STATE_SEARCHING:
+                            setStatusMessage(getString(R.string.status_searching));
+                            break;
+                        case OmniWearHelper.EVENT_STATE_NONE:
+                            setStatusMessage(getString(R.string.status_not_connected));
+                            configButtonVisibility();
+                            break;
+                        case OmniWearHelper.EVENT_DEVICE_FOUND:
+                            Toast.makeText(MainActivity.this, "OmniWear Device Found", Toast.LENGTH_LONG).show();
+                            break;
+                        case OmniWearHelper.EVENT_DEVICE_NOT_FOUND:
+                            Toast.makeText(MainActivity.this, "OmniWear Device Not Found", Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+
+            // Hide buttons.
+            hideButtons();
+
+            // If there's a saved MAC, try to connect.
+            String savedMAC = getSaved_mac();
+            if (savedMAC.equals("")) {
+                setButtonText(getString(R.string.pair_device));
+            } else {
+                setButtonText(getString(R.string.forget_device));
+                mHelper.connectToKnownDevice(savedMAC);
+            }
         }
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        mHelper.shutdown();
+        if (mHelper != null) {mHelper.shutdown();}
         // Force quitting the app since we should actually be disabling all the buttons here (but we aren't).
         // If we didn't force quit here, we'd have a crash later on if we tried to use the buttons before pairing.
         finish();
@@ -385,19 +410,7 @@ public class MainActivity extends ActivityBase {
                 break;
             case OmniWearHelper.DEVICETYPE_ERROR:
                 // Hide everything.
-                findViewById(R.id.button_middle_back).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_middle_front).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_middle_left).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_middle_right).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_top).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_front).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_front_right).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_right).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_back_right).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_back).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_back_left).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_left).setVisibility(View.INVISIBLE);
-                findViewById(R.id.button_front_left).setVisibility(View.INVISIBLE);
+                hideButtons();
                 break;
         }
     }
@@ -428,5 +441,23 @@ public class MainActivity extends ActivityBase {
         SharedPreferences.Editor editor = settings.edit();
         editor.putString(SAVED_MAC_PREF_NAME, mac);
         editor.apply();
+    }
+
+    // Hide all the buttons.
+    private void hideButtons() {
+        // Hide everything.
+        findViewById(R.id.button_middle_back).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_middle_front).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_middle_left).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_middle_right).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_top).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_front).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_front_right).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_right).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_back_right).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_back).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_back_left).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_left).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_front_left).setVisibility(View.INVISIBLE);
     }
 }
