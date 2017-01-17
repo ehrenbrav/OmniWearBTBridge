@@ -77,6 +77,9 @@ public class MainActivity extends ActivityBase {
         ViewAnimator logFragment = (ViewAnimator) findViewById(R.id.log_fragment_animator);
         logFragment.setVisibility(View.INVISIBLE);
 
+        // Hide buttons.
+        hideButtons();
+
         // Initializes Bluetooth adapter.
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -92,48 +95,55 @@ public class MainActivity extends ActivityBase {
             mHelper = new OmniWearHelper(this, new OmniWearHelper.OnOmniWearEventListener() {
 
                 @Override
-                public void OnOmniWearEvent(int event) {
+                public void OnOmniWearEvent(final int event) {
 
-                    switch (event) {
+                    // So our callback can tinker with the app's UI.
+                    runOnUiThread(new Runnable() {
 
-                        case OmniWearHelper.EVENT_STATE_CONNECTING:
-                            setStatusMessage(getString(R.string.status_connecting));
-                            break;
-                        case OmniWearHelper.EVENT_STATE_CONNECTED:
-                            configButtonUI();
-                            configButtonVisibility();
-                            setSaved_mac(mHelper.getConnectedDeviceMAC());
-                            setButtonText(getString(R.string.forget_device));
-                            setStatusMessage(getString(R.string.status_connected));
-                            Toast.makeText(MainActivity.this, "Connected to OmniWear Device", Toast.LENGTH_SHORT).show();
-                            break;
-                        case OmniWearHelper.EVENT_STATE_SEARCHING:
-                            setStatusMessage(getString(R.string.status_searching));
-                            break;
-                        case OmniWearHelper.EVENT_STATE_NONE:
-                            setStatusMessage(getString(R.string.status_not_connected));
-                            configButtonVisibility();
-                            break;
-                        case OmniWearHelper.EVENT_DEVICE_FOUND:
-                            Toast.makeText(MainActivity.this, "OmniWear Device Found", Toast.LENGTH_LONG).show();
-                            break;
-                        case OmniWearHelper.EVENT_DEVICE_NOT_FOUND:
-                            Toast.makeText(MainActivity.this, "OmniWear Device Not Found", Toast.LENGTH_LONG).show();
-                    }
+                        @Override
+                        public void run() {
+
+                            switch (event) {
+
+                                case OmniWearHelper.EVENT_STATE_CONNECTING:
+                                    setStatusMessage(getString(R.string.status_connecting));
+                                    break;
+                                case OmniWearHelper.EVENT_STATE_CONNECTED:
+                                    configButtonUI();
+                                    configButtonVisibility();
+                                    setSaved_mac(mHelper.getConnectedDeviceMAC());
+                                    setButtonText(getString(R.string.forget_device));
+                                    setStatusMessage(getString(R.string.status_connected));
+                                    Toast.makeText(MainActivity.this, "Connected to OmniWear Device", Toast.LENGTH_SHORT).show();
+                                    break;
+                                case OmniWearHelper.EVENT_STATE_SEARCHING:
+                                    setStatusMessage(getString(R.string.status_searching));
+                                    break;
+                                case OmniWearHelper.EVENT_STATE_NONE:
+                                    setStatusMessage(getString(R.string.status_not_connected));
+                                    hideButtons();
+                                    break;
+                                case OmniWearHelper.EVENT_DEVICE_FOUND:
+                                    Toast.makeText(MainActivity.this, "OmniWear Device Found", Toast.LENGTH_LONG).show();
+                                    break;
+                                case OmniWearHelper.EVENT_DEVICE_NOT_FOUND:
+                                    Toast.makeText(MainActivity.this, "OmniWear Device Not Found", Toast.LENGTH_LONG).show();
+                                    break;
+                                case OmniWearHelper.EVENT_SERVICE_BOUND:
+                                    // If there's a saved MAC, try to connect.
+                                    String savedMAC = getSaved_mac();
+                                    if (savedMAC.equals("")) {
+                                        setButtonText(getString(R.string.pair_device));
+                                    } else {
+                                        setButtonText(getString(R.string.forget_device));
+                                        mHelper.connectToKnownDevice(savedMAC);
+                                    }
+                                    break;
+                            }
+                        }
+                    });
                 }
             });
-
-            // Hide buttons.
-            hideButtons();
-
-            // If there's a saved MAC, try to connect.
-            String savedMAC = getSaved_mac();
-            if (savedMAC.equals("")) {
-                setButtonText(getString(R.string.pair_device));
-            } else {
-                setButtonText(getString(R.string.forget_device));
-                mHelper.connectToKnownDevice(savedMAC);
-            }
         }
     }
 

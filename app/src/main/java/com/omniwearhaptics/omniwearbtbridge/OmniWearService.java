@@ -41,8 +41,6 @@ import android.widget.Toast;
 
 import java.util.UUID;
 
-import static android.bluetooth.BluetoothProfile.STATE_DISCONNECTED;
-
 /**
  * Android Service that other apps can use to interact with OmniWear devices.
  * 
@@ -57,9 +55,10 @@ public class OmniWearService extends Service {
 
     // Constants from the firmware.
     private static final String BT_NAME = "OmniWear";
-    private static final String OMNIWEAR_UUID = "99700001-ad20-11e6-8000-00805F9B34FB";
-    private static final String OMNIWEAR_CHARACTERISTIC_UUID = "99700002-ad20-11e6-8000-00805F9B34FB";
-    private static final String OMNIWEAR_DEVICE_TYPE_CHARACTERISTIC_UUID = "99700003-ad20-11e6-8000-00805F9B34FB";
+    private static final String HAPTIC_SERVICE_UUID = "99700001-ad20-11e6-8000-00805F9B34FB";
+    private static final String HAPTIC_CHARACTERISTIC_UUID = "99700002-ad20-11e6-8000-00805F9B34FB";
+    private static final String DEVICE_INFO_SERVICE_UUID = "0000180a-0000-1000-8000-00805F9B34FB";
+    private static final String OMNIWEAR_DEVICE_TYPE_CHARACTERISTIC_UUID = "00002a24-0000-1000-8000-00805F9B34FB";
 
     // Duration of scan.
     private static final long SCAN_PERIOD = 10000;
@@ -67,13 +66,14 @@ public class OmniWearService extends Service {
     // State and BlueTooth fields.
     private BluetoothAdapter mBluetoothAdapter = null;
     private BluetoothGatt mBluetoothGatt = null;
-    private BluetoothGattService mOmniWearDeviceService = null;
-    private BluetoothGattCharacteristic mOmniWearDeviceCharacteristic = null;
+    private BluetoothGattService mHapticService = null;
+    private BluetoothGattService mDeviceInfoService = null;
+    private BluetoothGattCharacteristic mHapticCharacteristic = null;
     private BluetoothGattCharacteristic mOmniWearDeviceTypeCharacteristic = null;
     private Handler mHandler;
     private IOmniWearCallback mCallback;
     private static String mConnectedDeviceMAC = "";
-    private static byte mDeviceType = OmniWearHelper.DEVICETYPE_ERROR;
+    private static int mDeviceType = OmniWearHelper.DEVICETYPE_ERROR;
     private static int mState = OmniWearHelper.EVENT_STATE_NONE;
 
     @Override
@@ -249,15 +249,12 @@ public class OmniWearService extends Service {
                 public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
 
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
-                        setState(OmniWearHelper.EVENT_STATE_CONNECTED);
                         Log.i(TAG, "Connected.");
                         Log.i(TAG, "Attempting to start service discovery:" +
                                 mBluetoothGatt.discoverServices());
 
-                    } else if (newState == STATE_DISCONNECTED) {
-
-                        setState(OmniWearHelper.EVENT_STATE_NONE);
-                        Log.i(TAG, "Not connected.");
+                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                        stop();
                     }
                 }
 
@@ -266,8 +263,8 @@ public class OmniWearService extends Service {
 
                     // Find the service and characteristic for controlling the device.
                     if (status == BluetoothGatt.GATT_SUCCESS) {
-                        mOmniWearDeviceService = gatt.getService(UUID.fromString(OMNIWEAR_UUID));
-                        if (mOmniWearDeviceService == null) {
+                        mHapticService = gatt.getService(UUID.fromString(HAPTIC_SERVICE_UUID));
+                        if (mHapticService == null) {
 
                             // Weird - no OmniWear service...cancel.
                             Log.w(TAG, "OmniWear service not found.");
@@ -276,8 +273,8 @@ public class OmniWearService extends Service {
                             Log.i(TAG, "OmniWear service discovered.");
 
                             // Get the characteristic for controlling the device.
-                            mOmniWearDeviceCharacteristic = mOmniWearDeviceService.getCharacteristic(UUID.fromString(OMNIWEAR_CHARACTERISTIC_UUID));
-                            if (mOmniWearDeviceCharacteristic == null) {
+                            mHapticCharacteristic = mHapticService.getCharacteristic(UUID.fromString(HAPTIC_CHARACTERISTIC_UUID));
+                            if (mHapticCharacteristic == null) {
 
                                 // Weird - no OmniWear chacteristic...cancel.
                                 Log.w(TAG, "OmniWear characteristic not found.");
@@ -287,9 +284,21 @@ public class OmniWearService extends Service {
                                 // Success.
                                 Log.i(TAG, "OmniWear Characteristic found.");
                             }
+                        }
+
+                        // Get the Device Info Service.
+                        mDeviceInfoService = gatt.getService(UUID.fromString(DEVICE_INFO_SERVICE_UUID));
+                        if (mDeviceInfoService == null) {
+
+                            // No Device Info Service.
+                            Log.w(TAG, "Device Info Service not found.");
+                            stop();
+                        } else {
+
+                            Log.i(TAG, "Device Info Service found.");
 
                             // Get the device type characteristic.
-                            mOmniWearDeviceTypeCharacteristic = mOmniWearDeviceService.getCharacteristic(UUID.fromString(OMNIWEAR_DEVICE_TYPE_CHARACTERISTIC_UUID));
+                            mOmniWearDeviceTypeCharacteristic = mDeviceInfoService.getCharacteristic(UUID.fromString(OMNIWEAR_DEVICE_TYPE_CHARACTERISTIC_UUID));
                             if (mOmniWearDeviceTypeCharacteristic == null) {
 
                                 // Weird - no device type characteristic...cancel.
@@ -303,6 +312,7 @@ public class OmniWearService extends Service {
 
                             // Save the MAC.
                             mConnectedDeviceMAC = gatt.getDevice().getAddress();
+
 
                             // Save the device type.
                             mBluetoothGatt.readCharacteristic(mOmniWearDeviceTypeCharacteristic);
@@ -330,18 +340,21 @@ public class OmniWearService extends Service {
                     // Handle the device type characteristic.
                     if (characteristic == mOmniWearDeviceTypeCharacteristic) {
 
-                        byte[] deviceType = characteristic.getValue();
+                        int deviceType = Integer.valueOf(characteristic.getStringValue(0));
 
                         // Error check.
-                        if (deviceType[0] != OmniWearHelper.DEVICETYPE_CAP &&
-                                deviceType[0] != OmniWearHelper.DEVICETYPE_NECKBAND &&
-                                deviceType[0] != OmniWearHelper.DEVICETYPE_WRISTBAND) {
+                        if (deviceType != OmniWearHelper.DEVICETYPE_CAP &&
+                                deviceType != OmniWearHelper.DEVICETYPE_NECKBAND &&
+                                deviceType != OmniWearHelper.DEVICETYPE_WRISTBAND) {
                             Log.e(TAG, "onServicesDiscovered: invalid device type returned from device");
                             stop();
                             return;
                         }
-                        mDeviceType = deviceType[0];
+                        mDeviceType = deviceType;
                         Log.i(TAG, "Device Type is " + mDeviceType);
+
+                        // Tell the app we're all set.
+                        setState(OmniWearHelper.EVENT_STATE_CONNECTED);
                     }
                 }
             };
@@ -389,11 +402,11 @@ public class OmniWearService extends Service {
             byte[] value = new byte[2];
             value[0] = motorId;
             value[1] = intensity;
-            mOmniWearDeviceCharacteristic.setValue(value);
+            mHapticCharacteristic.setValue(value);
 
             // Write the command to the device.
             Log.d(TAG, "Write: " + value[0] + " " + value[1]);
-            mBluetoothGatt.writeCharacteristic(mOmniWearDeviceCharacteristic);
+            mBluetoothGatt.writeCharacteristic(mHapticCharacteristic);
         }
 
 		@Override
@@ -423,17 +436,17 @@ public class OmniWearService extends Service {
 
     // Cleanup.
     private void stop() {
-        Log.d(TAG, "stop");
 
         if (mBluetoothGatt == null) {
             return;
         }
+        Log.d(TAG, "stop");
         mDeviceType = OmniWearHelper.DEVICETYPE_ERROR;
         mConnectedDeviceMAC = "";
         mBluetoothGatt.close();
         mBluetoothGatt = null;
-        mOmniWearDeviceService = null;
-        mOmniWearDeviceCharacteristic = null;
+        mHapticService = null;
+        mHapticCharacteristic = null;
         setState(OmniWearHelper.EVENT_STATE_NONE);
     }
 }

@@ -33,10 +33,10 @@ public class OmniWearHelper {
     private static final String TAG = "OmniWearHelper";
 
     // Constants for the device type.
-	public static final byte DEVICETYPE_ERROR = 0x0;
-	public static final byte DEVICETYPE_CAP = 0x1;
-	public static final byte DEVICETYPE_NECKBAND = 0x2;
-	public static final byte DEVICETYPE_WRISTBAND = 0x3;
+	public static final int DEVICETYPE_ERROR = 0;
+	public static final int DEVICETYPE_CAP = 1;
+	public static final int DEVICETYPE_NECKBAND = 2;
+	public static final int DEVICETYPE_WRISTBAND = 3;
 
     // Events
     public static final int EVENT_STATE_NONE = 0;
@@ -45,6 +45,7 @@ public class OmniWearHelper {
     public static final int EVENT_STATE_CONNECTED = 3;
     public static final int EVENT_DEVICE_FOUND = 4;
     public static final int EVENT_DEVICE_NOT_FOUND = 5;
+    public static final int EVENT_SERVICE_BOUND = 6;
 
     // Motor IDs.
     public static final byte FRONT =        0x0;
@@ -105,6 +106,7 @@ public class OmniWearHelper {
                     try {
                         if (mOmniWearInterface != null) {
                             mOmniWearInterface.registerCallback(mCallback);
+                            mCallback.onOmniWearEvent(EVENT_SERVICE_BOUND);
                         }
                     } catch (RemoteException e) {
                         e.printStackTrace();
