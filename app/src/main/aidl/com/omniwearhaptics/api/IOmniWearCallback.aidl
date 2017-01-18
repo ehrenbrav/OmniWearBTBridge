@@ -6,4 +6,5 @@ package com.omniwearhaptics.api;
 interface IOmniWearCallback {
 
     void onOmniWearEvent(int newState);
+    void onOmniWearLog(int priority, String tag, String msg);
 }

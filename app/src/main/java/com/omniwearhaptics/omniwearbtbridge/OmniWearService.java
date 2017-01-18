@@ -53,6 +53,8 @@ public class OmniWearService extends Service {
     // TODO: Put in a proper permission check once the app is set to target 23 or higher. 
     // But since we are targeting 22, we can safely ignore this for the time being.
 
+    // TODO add connecting timeout
+
     // Constants from the firmware.
     private static final String BT_NAME = "OmniWear";
     private static final String HAPTIC_SERVICE_UUID = "99700001-ad20-11e6-8000-00805F9B34FB";
@@ -87,7 +89,7 @@ public class OmniWearService extends Service {
 
         // If the adapter is null, then Bluetooth is not supported
         if (mBluetoothAdapter == null) {
-            Log.e(TAG, "Bluetooth is not available");
+            omniwearLog(6, TAG, "Bluetooth is not available");
             Toast.makeText(OmniWearService.this, "Bluetooth is not available - cannot continue", Toast.LENGTH_LONG).show();
             stopSelf();
             return;
@@ -96,7 +98,7 @@ public class OmniWearService extends Service {
         // Use this check to determine whether BLE is supported on the device. Then
         // you can selectively disable BLE-related features.
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-            Log.e(TAG, "BLE not supported");
+            omniwearLog(6, TAG, "BLE not supported");
             Toast.makeText(OmniWearService.this, "Bluetooth Low Energy is not supported - cannot continue", Toast.LENGTH_LONG).show();
             stopSelf();
             return;
@@ -104,7 +106,7 @@ public class OmniWearService extends Service {
 
         // Ensures Bluetooth is on.
         if (!mBluetoothAdapter.isEnabled()) {
-            Log.e(TAG, "BlueTooth is not enabled.");
+            omniwearLog(6, TAG, "BlueTooth is not enabled.");
             stopSelf();
             return;
         }
@@ -145,11 +147,11 @@ public class OmniWearService extends Service {
 
             // Error check.
             if (mState != OmniWearHelper.EVENT_STATE_NONE) {
-                Log.e(TAG, "searchForOmniWearDevice: state is not EVENT_STATE_NONE");
+                omniwearLog(6, TAG, "searchForOmniWearDevice: state is not EVENT_STATE_NONE");
                 return;
             }
             if (!mBluetoothAdapter.isEnabled()) {
-                Log.e(TAG, "BlueTooth is not enabled");
+                omniwearLog(6, TAG, "BlueTooth is not enabled");
                 return;
             }
 
@@ -172,7 +174,7 @@ public class OmniWearService extends Service {
                     if (deviceName == null || deviceName.isEmpty() ) { return; }
 
                     // Log for debugging.
-                    Log.d(TAG, "Found device: " + device.getName());
+                    omniwearLog(3, TAG, "Found device: " + device.getName());
 
                     // Check if it's an OmniWear device.
                     if (device.getName().equals(BT_NAME)) {
@@ -193,7 +195,7 @@ public class OmniWearService extends Service {
                 @Override
                 public void onScanFailed(int errorCode) {
                     super.onScanFailed(errorCode);
-                    Log.w(TAG, "onScanFailed: " + errorCode);
+                    omniwearLog(5, TAG, "onScanFailed: " + errorCode);
                     setState(OmniWearHelper.EVENT_STATE_NONE);
                 }
             };
@@ -213,7 +215,7 @@ public class OmniWearService extends Service {
 
                     // Didn't find our device.
                     if (mState == OmniWearHelper.EVENT_STATE_SEARCHING) {
-                        Log.i(TAG, "Device not found");
+                        omniwearLog(4, TAG, "Device not found");
                         setState(OmniWearHelper.EVENT_STATE_NONE);
                         try {
                             mCallback.onOmniWearEvent(OmniWearHelper.EVENT_DEVICE_NOT_FOUND);
@@ -230,17 +232,17 @@ public class OmniWearService extends Service {
 
             // Error check.
             if (deviceMacAddress == null) {
-                Log.e(TAG, "deviceMacAddress is null in connectToDevice");
+                omniwearLog(6, TAG, "deviceMacAddress is null in connectToDevice");
                 return;
             }
             if (mState == OmniWearHelper.EVENT_STATE_CONNECTED || mState == OmniWearHelper.EVENT_STATE_CONNECTING) {
-                Log.e(TAG, "connectToKnownDevice: state is connected or connecting.");
+                omniwearLog(6, TAG, "connectToKnownDevice: state is connected or connecting.");
                 return;
             }
 
             // Create the device using the MAC.
             BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(deviceMacAddress);
-            Log.d(TAG, "Attempting to connect to: " + device);
+            omniwearLog(3, TAG, "Attempting to connect to: " + device);
 
             // Callbacks for interacting with the OmniWear Device.
             BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
@@ -249,8 +251,8 @@ public class OmniWearService extends Service {
                 public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
 
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
-                        Log.i(TAG, "Connected.");
-                        Log.i(TAG, "Attempting to start service discovery:" +
+                        omniwearLog(4, TAG, "Connected.");
+                        omniwearLog(4, TAG, "Attempting to start service discovery:" +
                                 mBluetoothGatt.discoverServices());
 
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
@@ -267,22 +269,23 @@ public class OmniWearService extends Service {
                         if (mHapticService == null) {
 
                             // Weird - no OmniWear service...cancel.
-                            Log.w(TAG, "OmniWear service not found.");
+                            omniwearLog(5, TAG, "OmniWear service not found.");
                             stop();
+                            return;
                         } else {
-                            Log.i(TAG, "OmniWear service discovered.");
+                            omniwearLog(4, TAG, "OmniWear service discovered.");
 
                             // Get the characteristic for controlling the device.
                             mHapticCharacteristic = mHapticService.getCharacteristic(UUID.fromString(HAPTIC_CHARACTERISTIC_UUID));
                             if (mHapticCharacteristic == null) {
 
                                 // Weird - no OmniWear chacteristic...cancel.
-                                Log.w(TAG, "OmniWear characteristic not found.");
+                                omniwearLog(5, TAG, "OmniWear characteristic not found.");
                                 stop();
                                 return;
                             } else {
                                 // Success.
-                                Log.i(TAG, "OmniWear Characteristic found.");
+                                omniwearLog(4, TAG, "OmniWear Characteristic found.");
                             }
                         }
 
@@ -291,50 +294,49 @@ public class OmniWearService extends Service {
                         if (mDeviceInfoService == null) {
 
                             // No Device Info Service.
-                            Log.w(TAG, "Device Info Service not found.");
+                            omniwearLog(5, TAG, "Device Info Service not found.");
                             stop();
                         } else {
 
-                            Log.i(TAG, "Device Info Service found.");
+                            omniwearLog(4, TAG, "Device Info Service found.");
 
                             // Get the device type characteristic.
                             mOmniWearDeviceTypeCharacteristic = mDeviceInfoService.getCharacteristic(UUID.fromString(OMNIWEAR_DEVICE_TYPE_CHARACTERISTIC_UUID));
                             if (mOmniWearDeviceTypeCharacteristic == null) {
 
                                 // Weird - no device type characteristic...cancel.
-                                Log.w(TAG, "Device type characteristic not found.");
+                                omniwearLog(5, TAG, "Device type characteristic not found.");
                                 stop();
                                 return;
                             } else {
                                 // Success.
-                                Log.i(TAG, "Device type Characteristic found.");
+                                omniwearLog(4, TAG, "Device type Characteristic found.");
                             }
 
                             // Save the MAC.
                             mConnectedDeviceMAC = gatt.getDevice().getAddress();
 
-
                             // Save the device type.
                             mBluetoothGatt.readCharacteristic(mOmniWearDeviceTypeCharacteristic);
                         }
                     } else {
-                        Log.w(TAG, "onServicesDiscovered received: " + status);
+                        omniwearLog(5, TAG, "onServicesDiscovered received: " + status);
                     }
                 }
 
                 @Override
                 public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
                     if (status == BluetoothGatt.GATT_SUCCESS) {
-                        Log.d(TAG, "Write successful.");
+                        omniwearLog(4, TAG, "Write successful.");
                     }
                 }
 
                 @Override
                 public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
                     if (status == BluetoothGatt.GATT_SUCCESS) {
-                        Log.d(TAG, "Read successful");
+                        omniwearLog(4, TAG, "Read successful");
                     } else {
-                        Log.e(TAG, "Read failed");
+                        omniwearLog(6, TAG, "Read failed");
                     }
 
                     // Handle the device type characteristic.
@@ -346,12 +348,12 @@ public class OmniWearService extends Service {
                         if (deviceType != OmniWearHelper.DEVICETYPE_CAP &&
                                 deviceType != OmniWearHelper.DEVICETYPE_NECKBAND &&
                                 deviceType != OmniWearHelper.DEVICETYPE_WRISTBAND) {
-                            Log.e(TAG, "onServicesDiscovered: invalid device type returned from device");
+                            omniwearLog(6, TAG, "onServicesDiscovered: invalid device type returned from device");
                             stop();
                             return;
                         }
                         mDeviceType = deviceType;
-                        Log.i(TAG, "Device Type is " + mDeviceType);
+                        omniwearLog(4, TAG, "Device Type is " + mDeviceType);
 
                         // Tell the app we're all set.
                         setState(OmniWearHelper.EVENT_STATE_CONNECTED);
@@ -369,7 +371,7 @@ public class OmniWearService extends Service {
 
             // Error check.
             if (mState != OmniWearHelper.EVENT_STATE_CONNECTED) {
-                Log.w(TAG, "getDeviceType(): no connected device");
+                omniwearLog(5, TAG, "getDeviceType(): no connected device");
                 return OmniWearHelper.DEVICETYPE_ERROR;
             }
             return mDeviceType;
@@ -378,7 +380,7 @@ public class OmniWearService extends Service {
         @Override
         public String getConnectedDeviceMAC() throws RemoteException {
             if (mState != OmniWearHelper.EVENT_STATE_CONNECTED) {
-                Log.w(TAG, "getConnectedDeviceMAC: no current connected device");
+                omniwearLog(5, TAG, "getConnectedDeviceMAC: no current connected device");
                 return "";
             }
             return mConnectedDeviceMAC;
@@ -388,13 +390,13 @@ public class OmniWearService extends Service {
 		public void setMotor(byte motorId, byte intensity) throws RemoteException {
 
 			if (mDeviceType == OmniWearHelper.DEVICETYPE_ERROR) {
-                Log.w(TAG, "setMotor: DeviceType is unkown.");
+                omniwearLog(5, TAG, "setMotor: DeviceType is unkown.");
                 return;
 			}
 
             // Check if we're connected.
             if (mState != OmniWearHelper.EVENT_STATE_CONNECTED || mBluetoothGatt == null) {
-                Log.w(TAG, "setMotor: OmniWear device not connected.");
+                omniwearLog(5, TAG, "setMotor: OmniWear device not connected.");
                 return;
             }
 
@@ -405,7 +407,7 @@ public class OmniWearService extends Service {
             mHapticCharacteristic.setValue(value);
 
             // Write the command to the device.
-            Log.d(TAG, "Write: " + value[0] + " " + value[1]);
+            omniwearLog(4, TAG, "Write: " + value[0] + " " + value[1]);
             mBluetoothGatt.writeCharacteristic(mHapticCharacteristic);
         }
 
@@ -430,7 +432,17 @@ public class OmniWearService extends Service {
                 e.printStackTrace();
             }
         } else {
-            Log.e(TAG, "mCallback is null in setState");
+            omniwearLog(6, TAG, "mCallback is null in setState");
+        }
+    }
+
+    // Way to get logging both in the Service and in the app.
+    private void omniwearLog(int priority, String tag, String msg) {
+        Log.println(priority, tag, msg);
+        try {
+            mCallback.onOmniWearLog(priority, tag, msg);
+        } catch (RemoteException e) {
+            e.printStackTrace();
         }
     }
 
@@ -440,7 +452,7 @@ public class OmniWearService extends Service {
         if (mBluetoothGatt == null) {
             return;
         }
-        Log.d(TAG, "stop");
+        omniwearLog(4, TAG, "stop");
         mDeviceType = OmniWearHelper.DEVICETYPE_ERROR;
         mConnectedDeviceMAC = "";
         mBluetoothGatt.close();

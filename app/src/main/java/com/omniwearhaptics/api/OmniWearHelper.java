@@ -72,22 +72,33 @@ public class OmniWearHelper {
 
     // Callback functions that the client app implements.
     private OnOmniWearEventListener mOnOmniWearEventListener;
+    private OnOmniWearLogListener mOnOmniWearLogListener;
 
     public interface OnOmniWearEventListener {
         void OnOmniWearEvent(int event);
     }
+
+    public interface OnOmniWearLogListener {
+        void OnOmniWearLog(int priority, String tag, String msg);
+    }
+
     private IOmniWearCallback mCallback = new IOmniWearCallback.Stub() {
 
         public void onOmniWearEvent(int event) throws RemoteException {
             mOnOmniWearEventListener.OnOmniWearEvent(event);
         }
+
+        public void onOmniWearLog(int priority, String tag, String msg) throws RemoteException {
+            mOnOmniWearLogListener.OnOmniWearLog(priority, tag, msg);
+        }
     };
 
     // Start everything. If deviceMAC is empty, search for any OmniWear device.
-	public OmniWearHelper(final Context context, OnOmniWearEventListener listener) {
+	public OmniWearHelper(final Context context, OnOmniWearEventListener eventListener, OnOmniWearLogListener logListener) {
 
 		mParent = context;
-        mOnOmniWearEventListener = listener;
+        mOnOmniWearEventListener = eventListener;
+        mOnOmniWearLogListener = logListener;
 		Intent intent = new Intent();
 		intent.setClassName("com.omniwearhaptics.omniwearbtbridge",
 				"com.omniwearhaptics.omniwearbtbridge.OmniWearService");
@@ -136,6 +147,7 @@ public class OmniWearHelper {
 			mParent.unbindService(mServiceConnection);
 			mServiceConnection = null;
             mOnOmniWearEventListener = null;
+            mOnOmniWearLogListener = null;
 		}
 	}
 

@@ -143,6 +143,13 @@ public class MainActivity extends ActivityBase {
                         }
                     });
                 }
+            }, new OmniWearHelper.OnOmniWearLogListener() {
+
+                // Simple way to get log messages from the service.
+                @Override
+                public void OnOmniWearLog(int priority, String tag, String msg) {
+                    Log.println(priority, tag, msg);
+                }
             });
         }
     }
