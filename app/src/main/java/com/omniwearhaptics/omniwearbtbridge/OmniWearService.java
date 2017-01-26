@@ -49,9 +49,6 @@ import java.util.UUID;
 public class OmniWearService extends Service {
 
     private static final String TAG = "OmniWearService";
-    
-    // TODO: Put in a proper permission check once the app is set to target 23 or higher. 
-    // But since we are targeting 22, we can safely ignore this for the time being.
 
     // TODO add connecting timeout
 
@@ -113,7 +110,7 @@ public class OmniWearService extends Service {
 
         // Set up the handler.
         mHandler = new Handler();
-	}
+    }
 
     @Override
     public void onDestroy(){

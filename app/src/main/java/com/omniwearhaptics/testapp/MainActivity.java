@@ -1,10 +1,14 @@
 package com.omniwearhaptics.testapp;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
@@ -85,10 +89,11 @@ public class MainActivity extends ActivityBase {
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
 
-        // Ensures Bluetooth is enabled. If so, enable Helper.
+        // Ensures Bluetooth is enabled and we have permissions. If so, enable Helper.
         if (!bluetoothAdapter.isEnabled()) {
             Toast.makeText(this, "Please enable BlueTooth", Toast.LENGTH_LONG).show();
             finish();
+
         } else {
 
             // Create the OmniWear helper.
@@ -139,6 +144,11 @@ public class MainActivity extends ActivityBase {
                                         mHelper.connectToKnownDevice(savedMAC);
                                     }
                                     break;
+                                case OmniWearHelper.EVENT_NO_PERMISSION:
+                                    // Ask the user to grant permissions.
+                                    ActivityCompat.requestPermissions(MainActivity.this,
+                                            new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                                            OmniWearHelper.MY_PERMISSIONS_REQUEST_FINE_LOCATION);
                             }
                         }
                     });
@@ -161,6 +171,23 @@ public class MainActivity extends ActivityBase {
         // Force quitting the app since we should actually be disabling all the buttons here (but we aren't).
         // If we didn't force quit here, we'd have a crash later on if we tried to use the buttons before pairing.
         finish();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String permissions[], @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case OmniWearHelper.MY_PERMISSIONS_REQUEST_FINE_LOCATION: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length <= 0
+                        || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+
+                    Toast.makeText(MainActivity.this, "App needs the location permission to run.", Toast.LENGTH_SHORT).show();
+                    if (mHelper != null) {mHelper.shutdown();}
+                    finish();
+                }
+            }
+        }
     }
 
     // Handle forgetting and pairing of the device.

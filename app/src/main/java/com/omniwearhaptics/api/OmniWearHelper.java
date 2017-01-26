@@ -14,12 +14,15 @@
 
 package com.omniwearhaptics.api;
 
+import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 
 
@@ -46,6 +49,7 @@ public class OmniWearHelper {
     public static final int EVENT_DEVICE_FOUND = 4;
     public static final int EVENT_DEVICE_NOT_FOUND = 5;
     public static final int EVENT_SERVICE_BOUND = 6;
+    public static final int EVENT_NO_PERMISSION = 7;
 
     // Motor IDs.
     public static final byte FRONT =        0x0;
@@ -64,6 +68,9 @@ public class OmniWearHelper {
 
     // Motor off constant.
     public static final byte OFF =          0x0;
+
+    // Permissions.
+    public static final int MY_PERMISSIONS_REQUEST_FINE_LOCATION = 1;
 
     // Private fields relating to the OmniWear service.
 	private ServiceConnection mServiceConnection;
@@ -102,6 +109,7 @@ public class OmniWearHelper {
 		Intent intent = new Intent();
 		intent.setClassName("com.omniwearhaptics.omniwearbtbridge",
 				"com.omniwearhaptics.omniwearbtbridge.OmniWearService");
+        permissionsCheck();
 
         // Connect to the OmniWear service.
 		mServiceConnection = new ServiceConnection() {
@@ -221,5 +229,19 @@ public class OmniWearHelper {
             }
         }
         return "";
+    }
+
+    // Check that we have the necessary permissions.
+    private void permissionsCheck() {
+
+        if (ContextCompat.checkSelfPermission(mParent,
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            try {
+                mCallback.onOmniWearEvent(EVENT_NO_PERMISSION);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }
