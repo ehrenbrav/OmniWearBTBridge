@@ -35,11 +35,11 @@ public class OmniWearHelper {
 
     private static final String TAG = "OmniWearHelper";
 
-    // Constants for the device type.
+    // Constants for the device type - corresponds to number of motors.
 	public static final int DEVICETYPE_ERROR = 0;
-	public static final int DEVICETYPE_CAP = 1;
-	public static final int DEVICETYPE_NECKBAND = 2;
-	public static final int DEVICETYPE_WRISTBAND = 3;
+	public static final int DEVICETYPE_CAP = 13;
+	public static final int DEVICETYPE_NECKBAND = 8;
+	public static final int DEVICETYPE_WRISTBAND = 1;
 
     // Events
     public static final int EVENT_STATE_NONE = 0;
